@@ -8,15 +8,17 @@ import { FaFire } from "react-icons/fa";
 import { MdKeyboardVoice } from "react-icons/md";
 
 const recent_data = [
-    { id: 1, lable: "first meal", description: "this is the first meal of the day", icon: <FaBowlFood className="text-[#A6F04C] h-6 w-6" /> },
-    { id: 2, lable: "second meal", description: "this is the second meal of the day", icon: <FaBowlFood className="text-[#A6F04C] h-6 w-6" /> },
-    { id: 3, lable: "third meal", description: "this is the third meal of the day", icon: <FaBowlFood className="text-[#A6F04C] h-6 w-6" /> }
+    { id: 1, lable: "first meal", description: "this is the first meal of the day", icon: <FaBowlFood className="text-[#0EA5E9] h-6 w-6" /> },
+    { id: 2, lable: "second meal", description: "this is the second meal of the day", icon: <FaBowlFood className="text-[#0EA5E9] h-6 w-6" /> },
+    { id: 3, lable: "third meal", description: "this is the third meal of the day", icon: <FaBowlFood className="text-[#0EA5E9] h-6 w-6" /> }
 ]
 
 
 const Home = () => {
+
+    
     return (
-        <div className="relative">
+        <div className="relative bg-black">
             <Navbar />
             <main className="flex-1 overflow-y-auto pb-22">
 
@@ -39,7 +41,7 @@ const Home = () => {
                                 </div>
                                 <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
                                     <div
-                                        className="bg-[#84E056] h-full transition-all duration-300 ease-out rounded-full"
+                                        className="bg-[#0EA5E9] h-full transition-all duration-300 ease-out rounded-full"
                                         style={{ width: 180 }}
                                     />
                                 </div>
@@ -54,7 +56,7 @@ const Home = () => {
                                 </div>
                                 <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
                                     <div
-                                        className="bg-[#84E056] h-full transition-all duration-300 ease-out rounded-full"
+                                        className="bg-[#0EA5E9] h-full transition-all duration-300 ease-out rounded-full"
                                         style={{ width: 100 }}
                                     />
                                 </div>
@@ -64,7 +66,7 @@ const Home = () => {
                         <div >
                             <div className="flex items-center justify-between">
                                 <div className="flex gap-3 items-center">
-                                    <FaWalking className="bg-[#84E056] rounded-full h-9 w-9 p-2" />
+                                    <FaWalking className="bg-[#3B82F6] rounded-full h-9 w-9 p-2" />
                                     <div>
                                         <h1 className="text-[#C6C6C9] font-bold">Steps</h1>
                                         <p className="text-[#909193] text-[12px]">Daily Goal : 8000</p>
@@ -72,7 +74,7 @@ const Home = () => {
                                 </div>
                                 <div>
                                     <p className="text-2xl text-[#C6C6C9] text-right font-bold">5,298</p>
-                                    <p className="text-[#66C03A] font-medium ">68% Reached</p>
+                                    <p className="text-[#3B82F6] font-medium ">68% Reached</p>
                                 </div>
                             </div>
                         </div>
@@ -86,7 +88,7 @@ const Home = () => {
                     <h1 className="text-lg text-[#DFE2ED] font-medium">AI Assistant tab</h1>
                     </div>
                     <div className="h-80 flex flex-col justify-center items-center gap-3">
-                        <div className="h-30 w-30 rounded-full bg-[#84E056] blur-3xl absolute animate-pulse ">
+                        <div className="h-30 w-30 rounded-full bg-[#3B82F6] blur-3xl absolute animate-pulse ">
                         </div>
                         <MdKeyboardVoice className="text-white h-10 w-10 z-50 animate-pulse" />
                         <h1 className="text-white animate-pulse">Start Conversation</h1>
