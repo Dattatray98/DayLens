@@ -1,9 +1,9 @@
 
 import ActivityTab from "./pages/ActivityTab";
-import Assistant from "./pages/Assistant";
 import Home from "./pages/Home";
 import {BrowserRouter as Router, Routes, Route} from "react-router-dom";
 import Settings from "./pages/Settings";
+import Assistant from "./pages/Assistant";
 
 
 const App = () => {

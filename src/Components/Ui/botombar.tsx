@@ -9,7 +9,7 @@ const bottomTabs = [
     { id: 1, location: "/", label: "Home", icon: <FaHome className="h-5 w-5" /> },
     { id: 2, location: "/assitsant", label: "Assistant", icon: <SiGoogleassistant className="h-5 w-5" /> },
     { id: 3, location: "/activity", label: "Activity", icon: <LuActivity className="h-5 w-5" /> },
-    { id: 4, location: "/settings", label: "Settings", icon: <IoSettings className="h-5 w-5" /> }
+    { id: 4, location: "/settings", label: "Settings", icon: <IoSettings className="h-5 w-5" /> },
 ]
 
 const Bottombar = () => {
