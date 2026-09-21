@@ -22,6 +22,34 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-android
 data
 models
+
+            # Built variants and artifacts
+*.apk
+*.aar
+*.ap_
+*.aab
+/build
+/*/build
+
+# IDE and Android Studio files
+.gradle/
+/local.properties
+/.idea/
+/*.iml
+/*/*.iml
+.idea/caches/
+.idea/libraries/
+
+# Device/Emulator logs
+*.log
+
+# Keystores and sensitive signing files
+*.jks
+*.keystore
+*.p12
+
+# OS generated files
+.DS_Store
+Thumbs.db
