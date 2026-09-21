@@ -120,7 +120,7 @@ const Assistant = () => {
                                                 py-2
                                                 max-w-[85%]
                                                 sm:max-w-[70%]
-                                                break-words
+                                                wrap-break-word
                                             "
                                         >
                                             {item.user}
@@ -142,7 +142,7 @@ const Assistant = () => {
                                                 py-3
                                                 max-w-[90%]
                                                 sm:max-w-[80%]
-                                                break-words
+                                                wrap-break-word
                                             "
                                         >
                                             <ReactMarkdown>
