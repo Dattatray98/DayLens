@@ -17,7 +17,6 @@ const Bottombar = () => {
     const location = useLocation();
     const navigate = useNavigate();
 
-    console.log(location)
 
     return (
         <div className="flex items-center justify-between border-t border-white/15 bg-black px-5 fixed bottom-0 h-15 w-full">

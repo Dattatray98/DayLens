@@ -19,14 +19,14 @@ const Home = () => {
 
     return (
         <div className="relative bg-black">
+
             <Navbar />
             <main className="flex-1 overflow-y-auto pb-22">
-
                 {/* Overview Tab */}
                 <div className=" p-4 flex flex-col gap-4 ">
                     <h1 className="text-2xl text-white font-medium">How are you feeling Today?</h1>
                     <div className="bg-[#1b1d1f] overflow-hidden relative flex flex-col gap-6 justify-between rounded-2xl p-4">
-                     <div className="bg-[#009ADA] blur-[140px] absolute -top-10 -right-10 h-40 w-40 opacity-60 pointer-events-none"></div>
+                        <div className="bg-[#009ADA] blur-[140px] absolute -top-10 -right-10 h-40 w-40 opacity-60 pointer-events-none"></div>
                         <div className="flex justify-between items-center text-white">
                             <h2 >Today's Overview</h2>
                             <p className="text-sm text-[#909193]">Updated 12m ago</p>
@@ -85,8 +85,8 @@ const Home = () => {
                 {/* wake the assistant */}
                 <div className="p-5 border-y border-white/12 my-4">
                     <div className="flex items-center gap-3">
-                    <SiGoogleassistant className="text-white h-7 w-7 z-50 animate-pulse" />
-                    <h1 className="text-lg text-[#DFE2ED] font-medium">AI Assistant tab</h1>
+                        <SiGoogleassistant className="text-white h-7 w-7 z-50 animate-pulse" />
+                        <h1 className="text-lg text-[#DFE2ED] font-medium">AI Assistant tab</h1>
                     </div>
                     <div className="h-80 flex flex-col justify-center items-center gap-3">
                         <div className="h-30 w-30 rounded-full bg-[#3B82F6] blur-3xl absolute animate-pulse ">

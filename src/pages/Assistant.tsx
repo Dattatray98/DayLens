@@ -3,6 +3,7 @@ import { FaArrowUp } from "react-icons/fa6";
 import ReactMarkdown from "react-markdown";
 import Navbar from "../Components/Ui/Navbar";
 import Bottombar from "../Components/Ui/botombar";
+import { Wellness } from "../native/Wellness";
 
 interface MessageType {
     id: number;
@@ -12,10 +13,50 @@ interface MessageType {
 
 const Assistant = () => {
     const [message, setMessage] = useState<MessageType[]>([]);
-    const [isLoaded, setIsLoaded] = useState(false);
     const [input, setInput] = useState("");
 
     const chatScrollRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        const testNativeBridge = async () => {
+            try {
+                const result = await Wellness.test();
+
+                console.log("Native Wellness Plugin:", JSON.stringify(result, null, 2));
+
+                const onnxResult = await Wellness.testOnnx();
+
+                console.log(
+                    "ONNX Runtime:",
+                    JSON.stringify(onnxResult, null, 2)
+                );
+
+                const inferenceResult = await Wellness.testOnnxInference();
+
+                console.log(
+                    "ONNX Inference:",
+                    JSON.stringify(inferenceResult, null, 2)
+                );
+
+                const genAiResult = await Wellness.testGenAi();
+
+                console.log(
+                    "GenAI Test:",
+                    JSON.stringify(genAiResult, null, 2)
+                );
+
+                const qwenResult = await Wellness.testQwenGenAi();
+
+                console.log(
+                    "Qwen GenAI Test:",
+                    JSON.stringify(qwenResult, null, 2)
+                );
+            } catch (error) {
+                console.error("Native Wellness Plugin failed:", error);
+            }
+        };
+
+        testNativeBridge();
+    }, []);
 
     // Scroll to the latest message
     useEffect(() => {
@@ -36,18 +77,7 @@ const Assistant = () => {
             }
         }
 
-        setIsLoaded(true);
     }, []);
-
-    // Save messages
-    useEffect(() => {
-        if (isLoaded) {
-            localStorage.setItem(
-                "chat_History",
-                JSON.stringify(message)
-            );
-        }
-    }, [message, isLoaded]);
 
     const handleMessage = (
         event: React.ChangeEvent<HTMLInputElement>
@@ -72,22 +102,26 @@ const Assistant = () => {
             },
         ]);
 
+
         setInput("");
 
+
         // Temporary AI response
-        const res = "Hello, how are you?";
+        const res = "hello, how can i help you?"
 
         // Add AI response
         setMessage((prev) =>
             prev.map((msg) =>
                 msg.id === messageId
                     ? {
-                          ...msg,
-                          ai: res,
-                      }
+                        ...msg,
+                        ai: res!,
+                    }
                     : msg
             )
         );
+
+
     };
 
     return (
@@ -151,6 +185,7 @@ const Assistant = () => {
                                         </div>
                                     </div>
                                 )}
+
 
                             </div>
                         ))}
