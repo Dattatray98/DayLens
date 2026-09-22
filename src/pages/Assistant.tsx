@@ -4,6 +4,8 @@ import ReactMarkdown from "react-markdown";
 import Navbar from "../Components/Ui/Navbar";
 import Bottombar from "../Components/Ui/botombar";
 import { Wellness } from "../native/Wellness";
+import { executeWellnessIntent } from "../tools/intentExecutor";
+import { formatWellnessResult } from "../utils/formatWellnessResult";
 
 interface MessageType {
     id: number;
@@ -17,45 +19,7 @@ const Assistant = () => {
 
     const chatScrollRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
-        const testNativeBridge = async () => {
-            try {
-                const result = await Wellness.test();
-
-                console.log("Native Wellness Plugin:", JSON.stringify(result, null, 2));
-
-                const onnxResult = await Wellness.testOnnx();
-
-                console.log(
-                    "ONNX Runtime:",
-                    JSON.stringify(onnxResult, null, 2)
-                );
-
-                const inferenceResult = await Wellness.testOnnxInference();
-
-                console.log(
-                    "ONNX Inference:",
-                    JSON.stringify(inferenceResult, null, 2)
-                );
-
-                const genAiResult = await Wellness.testGenAi();
-
-                console.log(
-                    "GenAI Test:",
-                    JSON.stringify(genAiResult, null, 2)
-                );
-
-                const qwenResult = await Wellness.testQwenGenAi();
-
-                console.log(
-                    "Qwen GenAI Test:",
-                    JSON.stringify(qwenResult, null, 2)
-                );
-            } catch (error) {
-                console.error("Native Wellness Plugin failed:", error);
-            }
-        };
-
-        testNativeBridge();
+        console.log("Wellness Assistant ready");
     }, []);
 
     // Scroll to the latest message
@@ -106,20 +70,55 @@ const Assistant = () => {
         setInput("");
 
 
-        // Temporary AI response
-        const res = "hello, how can i help you?"
+        try {
+            const structuredResult =
+                await Wellness.testStructuredIntent({
+                    input: userInput,
+                });
 
-        // Add AI response
-        setMessage((prev) =>
-            prev.map((msg) =>
-                msg.id === messageId
-                    ? {
-                        ...msg,
-                        ai: res!,
-                    }
-                    : msg
-            )
-        );
+            if (!structuredResult.success) {
+                throw new Error(
+                    structuredResult.output || "Intent extraction failed"
+                );
+            }
+
+            const toolResult = await executeWellnessIntent(
+                structuredResult.output
+            );
+
+            const responseText = formatWellnessResult(
+                toolResult as Parameters<typeof formatWellnessResult>[0]
+            );
+
+            setMessage((prev) =>
+                prev.map((msg) =>
+                    msg.id === messageId
+                        ? {
+                            ...msg,
+                            ai: responseText,
+                        }
+                        : msg
+                )
+            );
+        } catch (error) {
+            console.error("Wellness assistant failed:", error);
+
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : "Something went wrong";
+
+            setMessage((prev) =>
+                prev.map((msg) =>
+                    msg.id === messageId
+                        ? {
+                            ...msg,
+                            ai: `Error: ${errorMessage}`,
+                        }
+                        : msg
+                )
+            );
+        }
 
 
     };

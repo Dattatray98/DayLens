@@ -7,6 +7,15 @@ export interface WellnessPlugin {
     native: boolean;
   }>;
 
+  getSteps(): Promise<{
+    success: boolean;
+    steps?: number;
+    sensor?: string;
+    permissionRequired?: boolean;
+    message?: string;
+  }>;
+
+
   testOnnx(): Promise<{
     initialized: boolean;
     runtime: string;
@@ -28,6 +37,15 @@ export interface WellnessPlugin {
   }>;
 
   testQwenGenAi(): Promise<{
+    success: boolean;
+    output: string;
+    runtime: string;
+    model: string;
+  }>;
+
+  testStructuredIntent(options: {
+    input: string;
+  }): Promise<{
     success: boolean;
     output: string;
     runtime: string;
