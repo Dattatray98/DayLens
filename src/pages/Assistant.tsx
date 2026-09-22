@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import Navbar from "../Components/Ui/Navbar";
 import Bottombar from "../Components/Ui/botombar";
 import { Wellness } from "../native/Wellness";
-import { executeWellnessIntent } from "../tools/intentExecutor";
+import { executeWellnessIntent, detectUnsupportedIntent } from "../tools/intentExecutor";
 import { formatWellnessResult } from "../utils/formatWellnessResult";
 
 interface MessageType {
@@ -14,34 +14,106 @@ interface MessageType {
 }
 
 const Assistant = () => {
-    const [message, setMessage] = useState<MessageType[]>([]);
-    const [input, setInput] = useState("");
+    // Lazily initialize messages directly from localStorage so history renders immediately on mount
+    // Filter out any incomplete or corrupt items where ai is missing
+    const [message, setMessage] = useState<MessageType[]>(() => {
+        try {
+            const savedMessages = localStorage.getItem("chat_History");
+            if (savedMessages) {
+                const parsed = JSON.parse(savedMessages);
+                if (Array.isArray(parsed)) {
+                    return parsed.filter(
+                        (m): m is MessageType =>
+                            Boolean(
+                                m &&
+                                typeof m.id === "number" &&
+                                typeof m.user === "string" &&
+                                typeof m.ai === "string" &&
+                                m.ai.trim().length > 0
+                            )
+                    );
+                }
+            }
+        } catch (error) {
+            console.error("Failed to load chat history from localStorage:", error);
+            localStorage.removeItem("chat_History");
+        }
+        return [];
+    });
 
+    const [input, setInput] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [activeMessageId, setActiveMessageId] = useState<number | null>(null);
+    const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+    const [isInputFocused, setIsInputFocused] = useState(false);
+
+    // Synchronous lock to prevent concurrent/rapid double submissions
+    const isProcessingRef = useRef(false);
     const chatScrollRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    // Helper to detect mobile touch device vs desktop mouse pointer
+    const isTouchDevice = () => {
+        if (typeof window === "undefined") return false;
+        return (
+            window.matchMedia("(pointer: coarse)").matches ||
+            "ontouchstart" in window ||
+            (navigator.maxTouchPoints && navigator.maxTouchPoints > 0)
+        );
+    };
+
+    // Track viewport resize events (e.g. mobile virtual keyboard open/close)
     useEffect(() => {
-        console.log("Wellness Assistant ready");
+        if (typeof window === "undefined" || !window.visualViewport) return;
+
+        const handleViewportChange = () => {
+            if (!window.visualViewport) return;
+            // On mobile devices, virtual keyboard reduces visualViewport.height significantly
+            const heightDiff = window.innerHeight - window.visualViewport.height;
+            const keyboardActive = heightDiff > 120;
+            setIsKeyboardOpen(keyboardActive);
+        };
+
+        window.visualViewport.addEventListener("resize", handleViewportChange);
+        window.visualViewport.addEventListener("scroll", handleViewportChange);
+
+        return () => {
+            window.visualViewport?.removeEventListener("resize", handleViewportChange);
+            window.visualViewport?.removeEventListener("scroll", handleViewportChange);
+        };
     }, []);
 
-    // Scroll to the latest message
+    // Active keyboard state: on mobile touch devices, focus signals virtual keyboard
+    const isKeyboardActive = isKeyboardOpen || (Boolean(isTouchDevice()) && isInputFocused);
+
+    // Scroll to latest message when keyboard opens or messages update
+    useEffect(() => {
+        if (isKeyboardActive) {
+            const timer = setTimeout(() => {
+                chatScrollRef.current?.scrollIntoView({ behavior: "smooth" });
+            }, 80);
+            return () => clearTimeout(timer);
+        }
+    }, [isKeyboardActive]);
+
+    // Scroll to the latest message whenever messages update or loading state changes
     useEffect(() => {
         chatScrollRef.current?.scrollIntoView({
             behavior: "smooth",
         });
-    }, [message]);
+    }, [message, loading]);
 
-    // Load saved messages
+    // Persist completed messages to localStorage whenever message state updates
     useEffect(() => {
-        const savedMessages = localStorage.getItem("chat_History");
-
-        if (savedMessages) {
-            try {
-                setMessage(JSON.parse(savedMessages));
-            } catch {
-                localStorage.removeItem("chat_History");
-            }
+        try {
+            const completedMessages = message.filter(
+                (m) => m && m.user && m.ai && m.ai.trim().length > 0
+            );
+            localStorage.setItem("chat_History", JSON.stringify(completedMessages));
+        } catch (error) {
+            console.error("Failed to save chat history to localStorage:", error);
         }
-
-    }, []);
+    }, [message]);
 
     const handleMessage = (
         event: React.ChangeEvent<HTMLInputElement>
@@ -52,11 +124,14 @@ const Assistant = () => {
     const handleAskAI = async () => {
         const userInput = input.trim();
 
-        if (!userInput) return;
+        // Guard against empty input or already processing
+        if (!userInput || isProcessingRef.current || loading) return;
 
+        // Synchronously acquire lock
+        isProcessingRef.current = true;
         const messageId = Date.now();
 
-        // Add user message
+        // Add user message with empty ai response initially
         setMessage((prev) => [
             ...prev,
             {
@@ -66,24 +141,43 @@ const Assistant = () => {
             },
         ]);
 
-
         setInput("");
-
+        setActiveMessageId(messageId);
+        setLoading(true);
 
         try {
-            const structuredResult =
-                await Wellness.testStructuredIntent({
-                    input: userInput,
-                });
-
-            if (!structuredResult.success) {
-                throw new Error(
-                    structuredResult.output || "Intent extraction failed"
+            // 1. Early check for recognized unsupported intent (e.g. vitals/biometrics)
+            const earlyUnsupported = detectUnsupportedIntent(userInput);
+            if (earlyUnsupported) {
+                setMessage((prev) =>
+                    prev.map((msg) =>
+                        msg.id === messageId
+                            ? {
+                                ...msg,
+                                ai: earlyUnsupported.message,
+                            }
+                            : msg
+                    )
                 );
+                return;
+            }
+
+            let modelOutput = "";
+            try {
+                const structuredResult =
+                    await Wellness.testStructuredIntent({
+                        input: userInput,
+                    });
+                if (structuredResult.success) {
+                    modelOutput = structuredResult.output;
+                }
+            } catch (err) {
+                console.warn("Native structured intent unavailable:", err);
             }
 
             const toolResult = await executeWellnessIntent(
-                structuredResult.output
+                modelOutput,
+                userInput
             );
 
             const responseText = formatWellnessResult(
@@ -103,6 +197,22 @@ const Assistant = () => {
         } catch (error) {
             console.error("Wellness assistant failed:", error);
 
+            // Re-check for unsupported capability before rendering error
+            const fallbackUnsupported = detectUnsupportedIntent(userInput);
+            if (fallbackUnsupported) {
+                setMessage((prev) =>
+                    prev.map((msg) =>
+                        msg.id === messageId
+                            ? {
+                                ...msg,
+                                ai: fallbackUnsupported.message,
+                            }
+                            : msg
+                    )
+                );
+                return;
+            }
+
             const errorMessage =
                 error instanceof Error
                     ? error.message
@@ -113,34 +223,45 @@ const Assistant = () => {
                     msg.id === messageId
                         ? {
                             ...msg,
-                            ai: `Error: ${errorMessage}`,
+                            ai: `**Unable to complete request**\n\n${errorMessage}`,
                         }
                         : msg
                 )
             );
+        } finally {
+            // Guarantee all thinking and processing states are cleanly reset in all paths
+            setLoading(false);
+            setActiveMessageId(null);
+            isProcessingRef.current = false;
         }
-
-
     };
 
     return (
         <div className="h-dvh bg-black text-white flex flex-col overflow-hidden">
-
             {/* Top Navbar */}
             <Navbar />
 
             <main className="flex-1 min-h-0 flex flex-col">
-
                 {/* ================= CHAT AREA ================= */}
-                <div className="flex-1 min-h-0 overflow-y-auto chat-container-scroll">
-                    <div className="w-full max-w-3xl mx-auto px-4 sm:px-6">
-
+                <div
+                    className="flex-1 min-h-0 overflow-y-auto chat-container-scroll"
+                    onTouchStart={() => {
+                        if (isInputFocused) {
+                            inputRef.current?.blur();
+                        }
+                    }}
+                    onClick={() => {
+                        if (isInputFocused) {
+                            inputRef.current?.blur();
+                        }
+                    }}
+                >
+                    <div className="w-full max-w-3xl mx-auto px-3 sm:px-6">
                         {message.map((item) => (
                             <div
                                 key={item.id}
                                 className="flex flex-col gap-3 py-3"
                             >
-
                                 {/* USER MESSAGE */}
                                 {item.user && (
                                     <div className="flex justify-end">
@@ -149,11 +270,13 @@ const Assistant = () => {
                                                 bg-zinc-800
                                                 rounded-2xl
                                                 rounded-br-md
-                                                px-4
+                                                px-3.5 sm:px-4
                                                 py-2
-                                                max-w-[85%]
+                                                max-w-[88%]
                                                 sm:max-w-[70%]
-                                                wrap-break-word
+                                                break-words
+                                                [overflow-wrap:anywhere]
+                                                text-sm sm:text-base
                                             "
                                         >
                                             {item.user}
@@ -162,7 +285,7 @@ const Assistant = () => {
                                 )}
 
                                 {/* AI MESSAGE */}
-                                {item.ai && (
+                                {item.ai ? (
                                     <div className="flex justify-start">
                                         <div
                                             className="
@@ -171,44 +294,57 @@ const Assistant = () => {
                                                 bg-zinc-950
                                                 rounded-2xl
                                                 rounded-bl-md
-                                                px-4
-                                                py-3
-                                                max-w-[90%]
+                                                px-3.5 sm:px-4
+                                                py-2.5 sm:py-3
+                                                max-w-[92%]
                                                 sm:max-w-[80%]
-                                                wrap-break-word
+                                                break-words
+                                                [overflow-wrap:anywhere]
+                                                overflow-hidden
+                                                text-sm sm:text-base
                                             "
                                         >
-                                            <ReactMarkdown>
-                                                {item.ai}
-                                            </ReactMarkdown>
+                                            <div className="break-words [&_pre]:overflow-x-auto [&_pre]:p-2 [&_pre]:rounded-lg [&_pre]:bg-black/50 [&_code]:break-all">
+                                                <ReactMarkdown>
+                                                    {item.ai}
+                                                </ReactMarkdown>
+                                            </div>
                                         </div>
                                     </div>
-                                )}
-
-
+                                ) : loading && item.id === activeMessageId ? (
+                                    <div className="flex justify-start">
+                                        <div className="border border-gray-600/30 bg-zinc-950 rounded-2xl rounded-bl-md px-4 py-3 text-xs text-[#909193] animate-pulse">
+                                            Thinking...
+                                        </div>
+                                    </div>
+                                ) : null}
                             </div>
                         ))}
 
                         {/* Scroll target */}
                         <div ref={chatScrollRef} />
-
                     </div>
                 </div>
 
                 {/* ================= INPUT AREA ================= */}
                 <div
-                    className="
+                    className={`
                         shrink-0
                         bg-black
                         border-t
                         border-zinc-800
                         px-3
                         pt-3
-                        pb-20
-                    "
+                        transition-[padding]
+                        duration-200
+                        ${
+                            isKeyboardActive
+                                ? "pb-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]"
+                                : "pb-20 sm:pb-24 pb-[calc(5.5rem+env(safe-area-inset-bottom))]"
+                        }
+                    `}
                 >
                     <div className="w-full max-w-3xl mx-auto flex items-center gap-2">
-
                         {/* INPUT */}
                         <div
                             className="
@@ -220,6 +356,7 @@ const Assistant = () => {
                             "
                         >
                             <input
+                                ref={inputRef}
                                 type="text"
                                 placeholder="What's on your mind?"
                                 className="
@@ -228,14 +365,17 @@ const Assistant = () => {
                                     w-full
                                     bg-transparent
                                     outline-none
-                                    px-4
+                                    px-3.5 sm:px-4
                                     text-sm
                                     sm:text-base
                                 "
                                 value={input}
                                 onChange={handleMessage}
+                                onFocus={() => setIsInputFocused(true)}
+                                onBlur={() => setIsInputFocused(false)}
                                 onKeyDown={(event) => {
                                     if (event.key === "Enter") {
+                                        event.preventDefault();
                                         handleAskAI();
                                     }
                                 }}
@@ -245,8 +385,9 @@ const Assistant = () => {
                         {/* SEND BUTTON */}
                         <button
                             type="button"
+                            onMouseDown={(e) => e.preventDefault()}
                             onClick={handleAskAI}
-                            disabled={!input.trim()}
+                            disabled={!input.trim() || loading}
                             aria-label="Send message"
                             className="
                                 shrink-0
@@ -269,15 +410,12 @@ const Assistant = () => {
                         >
                             <FaArrowUp className="h-5 w-5" />
                         </button>
-
                     </div>
                 </div>
-
             </main>
 
             {/* Bottom Navigation */}
-            <Bottombar />
-
+            <Bottombar hidden={isKeyboardActive} />
         </div>
     );
 };

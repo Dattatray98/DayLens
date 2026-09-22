@@ -5,38 +5,50 @@ import { saveFoodLogs } from '../database/foodRepository';
 
 export const logFoodTool = tool(
     async ({ items }) => {
-        const calculatedItems = items.map((item) =>
-            calculateNutrition(
-                item.food,
-                item.quantity,
-                item.unit
-            )
-        );
+        try {
+            const calculatedItems = items.map((item) =>
+                calculateNutrition(
+                    item.food,
+                    item.quantity,
+                    item.unit
+                )
+            );
 
-        const totalCalories = calculatedItems.reduce(
-            (total, item) => total + item.calories,
-            0
-        );
+            const totalCalories = calculatedItems.reduce(
+                (total, item) => total + item.calories,
+                0
+            );
 
-        const totalProtein = calculatedItems.reduce(
-            (total, item) => total + item.protein,
-            0
-        );
+            const totalProtein = calculatedItems.reduce(
+                (total, item) => total + item.protein,
+                0
+            );
 
-        await saveFoodLogs(calculatedItems);
+            await saveFoodLogs(calculatedItems);
 
-        return {
-            success: true,
-            action: 'log_food',
-            items: calculatedItems,
-            totals: {
-                calories: Number(totalCalories.toFixed(2)),
-                protein: Number(totalProtein.toFixed(2)),
-            },
-            message: `Logged ${calculatedItems.length} food item${
-                calculatedItems.length === 1 ? '' : 's'
-            } and saved to local history.`,
-        };
+            return {
+                success: true,
+                action: 'log_food',
+                items: calculatedItems,
+                totals: {
+                    calories: Number(totalCalories.toFixed(2)),
+                    protein: Number(totalProtein.toFixed(2)),
+                },
+                message: `Logged ${calculatedItems.length} food item${
+                    calculatedItems.length === 1 ? '' : 's'
+                } and saved to local history.`,
+            };
+        } catch (err: unknown) {
+            const msg =
+                err instanceof Error
+                    ? err.message
+                    : 'Unable to calculate nutrition for the specified food.';
+            return {
+                success: false,
+                action: 'log_food',
+                message: msg,
+            };
+        }
     },
     {
         name: 'log_food',

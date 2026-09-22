@@ -1,4 +1,4 @@
-import { nutritionData } from './nutritionData';
+import { nutritionData, getCanonicalFood } from './nutritionData';
 
 export interface CalculatedFood {
     food: string;
@@ -8,35 +8,103 @@ export interface CalculatedFood {
     protein: number;
 }
 
-function normalizeFoodName(food: string): string {
-    return food.trim().toLowerCase();
+export class UnknownFoodError extends Error {
+    readonly foodName: string;
+
+    constructor(foodName: string) {
+        super(
+            `I can log foods from my local nutrition dataset, but I don't currently have nutrition data for "${foodName}". I won't guess the calories or protein.`
+        );
+        this.name = 'UnknownFoodError';
+        this.foodName = foodName;
+    }
 }
+
+const GRAM_UNITS = new Set(['g', 'gram', 'grams', 'gm', 'gms']);
+const KG_UNITS = new Set(['kg', 'kilogram', 'kilograms']);
+const ML_UNITS = new Set(['ml', 'milliliter', 'milliliters']);
+const L_UNITS = new Set(['l', 'liter', 'liters']);
+const COUNT_UNITS = new Set([
+    'piece',
+    'pieces',
+    'pc',
+    'pcs',
+    'unit',
+    'units',
+    'item',
+    'items',
+    'whole',
+    'count',
+    'slice',
+    'slices',
+]);
 
 export function calculateNutrition(
     food: string,
     quantity: number,
     unit: string
 ): CalculatedFood {
-    const normalizedFood = normalizeFoodName(food);
+    const canonicalFood = getCanonicalFood(food);
 
-    const nutrition = nutritionData[normalizedFood];
+    if (!canonicalFood) {
+        throw new UnknownFoodError(food);
+    }
+
+    const nutrition = nutritionData[canonicalFood];
 
     if (!nutrition) {
-        throw new Error(
-            `Food not found in local nutrition database: ${food}`
-        );
+        throw new UnknownFoodError(food);
     }
 
-    if (unit.toLowerCase() !== 'g' && unit.toLowerCase() !== 'gram' && unit.toLowerCase() !== 'grams') {
+    const normalizedUnit = (unit || '').trim().toLowerCase();
+    const rawFoodNormalized = (food || '').trim().toLowerCase();
+
+    let multiplier: number;
+
+    if (GRAM_UNITS.has(normalizedUnit)) {
+        multiplier = quantity / 100;
+    } else if (KG_UNITS.has(normalizedUnit)) {
+        multiplier = (quantity * 1000) / 100;
+    } else if (ML_UNITS.has(normalizedUnit)) {
+        // Density of milk / liquid dairy ~1.03 g/ml -> 1ml ~ 1g
+        multiplier = quantity / 100;
+    } else if (L_UNITS.has(normalizedUnit)) {
+        multiplier = (quantity * 1000) / 100;
+    } else if (
+        COUNT_UNITS.has(normalizedUnit) ||
+        normalizedUnit === canonicalFood ||
+        normalizedUnit === `${canonicalFood}s` ||
+        normalizedUnit === rawFoodNormalized ||
+        normalizedUnit === `${rawFoodNormalized}s` ||
+        normalizedUnit === 'egg' ||
+        normalizedUnit === 'eggs' ||
+        normalizedUnit === 'roti' ||
+        normalizedUnit === 'rotis' ||
+        normalizedUnit === 'banana' ||
+        normalizedUnit === 'bananas' ||
+        normalizedUnit === 'idli' ||
+        normalizedUnit === 'idlis' ||
+        normalizedUnit === 'chappathi' ||
+        normalizedUnit === 'chapati' ||
+        normalizedUnit === 'chapatis' ||
+        normalizedUnit === 'apple' ||
+        normalizedUnit === 'apples'
+    ) {
+        if (!nutrition.servingWeightG) {
+            throw new Error(
+                `Please specify quantity in grams for ${canonicalFood}.`
+            );
+        }
+        const effectiveGrams = quantity * nutrition.servingWeightG;
+        multiplier = effectiveGrams / 100;
+    } else {
         throw new Error(
-            `Unsupported nutrition unit for ${food}: ${unit}`
+            `Unsupported nutrition unit for ${canonicalFood}: ${unit}. Please specify quantity in grams (g) or standard servings.`
         );
     }
-
-    const multiplier = quantity / 100;
 
     return {
-        food: normalizedFood,
+        food: canonicalFood,
         quantity,
         unit,
         calories: Number((nutrition.calories * multiplier).toFixed(2)),
