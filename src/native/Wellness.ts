@@ -1,6 +1,30 @@
-import { registerPlugin } from '@capacitor/core';
+import { registerPlugin, type PluginListenerHandle } from '@capacitor/core';
+import type { ModelSetupStatus } from '../Components/ModelSetup/ModelSetupScreen';
+
+export interface ModelSetupProgressPayload {
+  status: ModelSetupStatus;
+  progress: number;
+  downloadedBytes: number;
+  totalBytes: number;
+  error?: string;
+}
 
 export interface WellnessPlugin {
+  prepareQwenModel(): Promise<{
+    started?: boolean;
+    status?: string;
+    progress?: number;
+    downloadedBytes?: number;
+    totalBytes?: number;
+    error?: string;
+    message?: string;
+  }>;
+
+  addListener(
+    eventName: 'modelSetupProgress',
+    listenerFunc: (event: ModelSetupProgressPayload) => void
+  ): Promise<PluginListenerHandle>;
+
   test(): Promise<{
     message: string;
     platform: string;
@@ -14,7 +38,6 @@ export interface WellnessPlugin {
     permissionRequired?: boolean;
     message?: string;
   }>;
-
 
   testOnnx(): Promise<{
     initialized: boolean;

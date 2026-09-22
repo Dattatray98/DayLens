@@ -27,22 +27,92 @@ import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import java.io.File
 import java.nio.FloatBuffer
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 @CapacitorPlugin(name = "Wellness")
 class WellnessPlugin : Plugin() {
 
+    private lateinit var modelManager: ModelManager
+    private val modelExecutor = Executors.newSingleThreadExecutor()
+    private val isPreparingModel = AtomicBoolean(false)
+
+    override fun load() {
+        super.load()
+        modelManager = ModelManager(context)
+    }
+
+    @PluginMethod
+    fun prepareQwenModel(call: PluginCall) {
+        if (modelManager.isModelValid()) {
+            val payload = JSObject().apply {
+                put("status", "ready")
+                put("progress", 100.0)
+                put("downloadedBytes", 0)
+                put("totalBytes", 0)
+            }
+            notifyListeners("modelSetupProgress", payload)
+            call.resolve(payload)
+            return
+        }
+
+        if (!isPreparingModel.compareAndSet(false, true)) {
+            val payload = JSObject().apply {
+                put("status", "preparing")
+                put("message", "Model preparation already in progress")
+            }
+            call.resolve(payload)
+            return
+        }
+
+        emitModelSetupProgress("preparing", 0.0, 0L, 0L, null)
+        val startedResponse = JSObject().apply {
+            put("started", true)
+            put("status", "preparing")
+        }
+        call.resolve(startedResponse)
+
+        modelExecutor.execute {
+            try {
+                modelManager.ensureQwenModel { status, progress, downloadedBytes, totalBytes, error ->
+                    emitModelSetupProgress(status, progress, downloadedBytes, totalBytes, error)
+                }
+                emitModelSetupProgress("ready", 100.0, 0L, 0L, null)
+            } catch (error: Exception) {
+                Log.e("WellnessPlugin", "Qwen model preparation failed", error)
+                emitModelSetupProgress(
+                    "error",
+                    0.0,
+                    0L,
+                    0L,
+                    error.message ?: "Model download or extraction failed"
+                )
+            } finally {
+                isPreparingModel.set(false)
+            }
+        }
+    }
+
+    private fun emitModelSetupProgress(
+        status: String,
+        progress: Double,
+        downloadedBytes: Long,
+        totalBytes: Long,
+        error: String?
+    ) {
+        val payload = JSObject().apply {
+            put("status", status)
+            put("progress", progress)
+            put("downloadedBytes", downloadedBytes)
+            put("totalBytes", totalBytes)
+            if (error != null) {
+                put("error", error)
+            }
+        }
+        notifyListeners("modelSetupProgress", payload)
+    }
+
     private companion object {
-        const val QWEN_GENAI_MODEL_DIRECTORY = "qwen2.5-0.5b-instruct-int4"
-
-        val QWEN_GENAI_MODEL_FILES = listOf(
-            "chat_template.jinja",
-            "genai_config.json",
-            "model.onnx",
-            "model.onnx.data",
-            "tokenizer_config.json",
-            "tokenizer.json"
-        )
-
         const val GENAI_MODEL_ASSET_DIRECTORY = "models/tiny-random-gpt2-fp32"
         const val GENAI_MODEL_DIRECTORY = "tiny-random-gpt2-fp32"
         val GENAI_MODEL_FILES = listOf(
@@ -298,45 +368,6 @@ class WellnessPlugin : Plugin() {
     }
 
 
-    private fun copyQwenGenAiModelToFilesDir(): File {
-        val modelDirectory = File(
-            context.filesDir,
-            "models/$QWEN_GENAI_MODEL_DIRECTORY"
-        )
-
-        if (!modelDirectory.exists() && !modelDirectory.mkdirs()) {
-            throw IllegalStateException("Unable to create Qwen GenAI model directory")
-        }
-
-        QWEN_GENAI_MODEL_FILES.forEach { fileName ->
-            val destination = File(modelDirectory, fileName)
-
-            if (destination.exists()) {
-                return@forEach
-            }
-
-            val temporaryDestination = File(
-                modelDirectory,
-                "$fileName.tmp"
-            )
-
-            context.assets
-                .open("models/$QWEN_GENAI_MODEL_DIRECTORY/$fileName")
-                .use { input ->
-                    temporaryDestination.outputStream().use(input::copyTo)
-                }
-
-            if (!temporaryDestination.renameTo(destination)) {
-                throw IllegalStateException(
-                    "Unable to copy Qwen GenAI model file: $fileName"
-                )
-            }
-        }
-
-        return modelDirectory
-    }
-
-
     @PluginMethod
     fun testStructuredIntent(call: PluginCall) {
         val response = JSObject()
@@ -391,7 +422,7 @@ class WellnessPlugin : Plugin() {
             <|im_start|>assistant
         """.trimIndent()
 
-            val modelPath = copyQwenGenAiModelToFilesDir().absolutePath
+            val modelPath = modelManager.ensureQwenModel().absolutePath
 
             val output = Model(modelPath).use { model ->
                 Tokenizer(model).use { tokenizer ->
@@ -445,7 +476,7 @@ class WellnessPlugin : Plugin() {
         response.put("model", "Qwen2.5-0.5B-Instruct INT4")
 
         try {
-            val modelPath = copyQwenGenAiModelToFilesDir().absolutePath
+            val modelPath = modelManager.ensureQwenModel().absolutePath
 
             val output = Model(modelPath).use { model ->
                 Tokenizer(model).use { tokenizer ->

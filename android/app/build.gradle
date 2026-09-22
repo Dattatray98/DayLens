@@ -5,6 +5,9 @@ android {
     namespace = "tech.github.dattatray.wellnessvoice"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
         applicationId "tech.github.dattatray.wellnessvoice"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
