@@ -95,7 +95,12 @@ export function formatWellnessResult(
         }`;
     }
 
-    // 5. Plan tools formatting
+    // 5. Conversation responses (bypasses tool formatting)
+    if (result.action === "conversation") {
+        return result.message ?? "";
+    }
+
+    // 6. Plan tools formatting
     if (result.action === "create_metric") {
         return `Added a ${result.frequency ?? "daily"} **${result.name}** target of **${result.targetValue} ${result.unit}**.`;
     }

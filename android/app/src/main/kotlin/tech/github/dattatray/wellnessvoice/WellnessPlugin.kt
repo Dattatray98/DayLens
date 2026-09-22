@@ -3,14 +3,19 @@ package tech.github.dattatray.wellnessvoice
 import android.util.Log
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import ai.onnxruntime.genai.Generator
@@ -36,6 +41,9 @@ class WellnessPlugin : Plugin() {
     private lateinit var modelManager: ModelManager
     private val modelExecutor = Executors.newSingleThreadExecutor()
     private val isPreparingModel = AtomicBoolean(false)
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var speechRecognizer: SpeechRecognizer? = null
+    private val isSpeechListening = AtomicBoolean(false)
 
     override fun load() {
         super.load()
@@ -380,13 +388,23 @@ class WellnessPlugin : Plugin() {
 
             val prompt = """
             <|im_start|>system
-            You are a wellness assistant intent parser.
-            Convert the user's request into exactly one JSON object.
+            You are Wellness Voice, a friendly and knowledgeable personal AI assistant.
 
-            Allowed actions:
+            Your primary role is to help the user with wellness tasks, but you must also
+            understand normal human conversation and answer naturally.
+
+            You have two response modes.
+
+            MODE 1: ACTION
+
+            Use this mode only when the user wants the application to perform one of the
+            supported wellness actions.
+
+            Supported actions:
 
             log_food:
             {
+              "type": "action",
               "action": "log_food",
               "items": [
                 {
@@ -399,22 +417,50 @@ class WellnessPlugin : Plugin() {
 
             get_steps:
             {
+              "type": "action",
               "action": "get_steps"
             }
 
             get_summary:
             {
+              "type": "action",
               "action": "get_summary"
             }
 
-            Rules:
-            - Return ONLY valid JSON.
-            - Do not use Markdown.
-            - Do not add explanations.
+            MODE 2: CONVERSATION
+
+            Use this mode when the user is greeting you, chatting casually, asking a
+            general question, or asking something that does not require one of the
+            supported wellness tools.
+
+            {
+              "type": "conversation",
+              "response": "<natural response to the user>"
+            }
+
+            CONVERSATION BEHAVIOR:
+            - Be friendly, natural and conversational.
+            - Respond directly to what the user said.
+            - Simple messages such as "Hi", "Hello", "Good morning", or "How are you?"
+              should receive natural conversational responses.
+            - Answer general educational questions when you can.
+            - Do not pretend to be a doctor, lawyer, or other licensed professional.
+            - For medical topics, provide general educational information rather than
+              diagnosis or personal medical treatment.
+            - Do not force wellness topics into unrelated conversations.
+            - Do not mention JSON, tools, intent parsing, schemas, or internal processing.
+
+            ACTION RULES:
+            - Return an action only when the user clearly wants a supported wellness action.
+            - Never invent missing values.
             - Do not calculate nutrition values.
-            - Do not invent missing values.
             - For multiple foods, include every food in the items array.
             - quantity must be a number.
+
+            OUTPUT RULES:
+            - Return ONLY one valid JSON object.
+            - Do not use Markdown outside the JSON string.
+            - Do not add explanations outside the JSON object.
             <|im_end|>
             <|im_start|>user
             $input
@@ -427,7 +473,7 @@ class WellnessPlugin : Plugin() {
             val output = Model(modelPath).use { model ->
                 Tokenizer(model).use { tokenizer ->
                     GeneratorParams(model).use { params ->
-                        params.setSearchOption("max_length", 256.0)
+                        params.setSearchOption("max_length", 2048.0)
 
                         Generator(model, params).use { generator ->
                             tokenizer.encode(prompt).use { promptTokens ->
@@ -438,7 +484,12 @@ class WellnessPlugin : Plugin() {
                                 generator.generateNextToken()
                             }
 
-                            tokenizer.decode(generator.getSequence(0))
+                            val fullOutput = tokenizer.decode(generator.getSequence(0))
+
+                            fullOutput
+                                .substringAfterLast("assistant", fullOutput)
+                                .replace("<|im_end|>", "")
+                                .trim()
                         }
                     }
                 }
@@ -522,5 +573,214 @@ class WellnessPlugin : Plugin() {
         }
 
         call.resolve(response)
+    }
+
+    @PluginMethod
+    fun getSpeechAvailability(call: PluginCall) {
+        val response = JSObject()
+        val isAvailable = SpeechRecognizer.isRecognitionAvailable(context)
+        var onDeviceAvailable = false
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                onDeviceAvailable = SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
+            } catch (e: Exception) {
+                Log.w("WellnessPlugin", "Error checking on-device recognition availability: ${e.message}")
+            }
+        }
+
+        response.put("available", isAvailable)
+        response.put("onDeviceAvailable", onDeviceAvailable)
+        call.resolve(response)
+    }
+
+    @PluginMethod
+    fun startListening(call: PluginCall) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                activity,
+                arrayOf(Manifest.permission.RECORD_AUDIO),
+                7002
+            )
+            val response = JSObject().apply {
+                put("success", false)
+                put("permissionRequired", true)
+                put("message", "Microphone permission required")
+            }
+            notifyListeners("speechError", JSObject().apply {
+                put("error", "Microphone permission required")
+                put("code", 9)
+            })
+            call.resolve(response)
+            return
+        }
+
+        if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+            val response = JSObject().apply {
+                put("success", false)
+                put("message", "Speech recognition is not available on this device")
+            }
+            notifyListeners("speechError", JSObject().apply {
+                put("error", "Speech recognition not available on device")
+                put("code", 2)
+            })
+            call.resolve(response)
+            return
+        }
+
+        mainHandler.post {
+            try {
+                cleanupSpeechRecognizer()
+
+                var usedOnDevice = false
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    try {
+                        if (SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
+                            speechRecognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+                            usedOnDevice = true
+                        }
+                    } catch (e: Exception) {
+                        Log.w("WellnessPlugin", "createOnDeviceSpeechRecognizer failed, falling back: ${e.message}")
+                    }
+                }
+
+                if (speechRecognizer == null) {
+                    speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+                }
+
+                speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+                    override fun onReadyForSpeech(params: Bundle?) {
+                        isSpeechListening.set(true)
+                        notifyListeners("speechState", JSObject().apply { put("state", "listening") })
+                    }
+
+                    override fun onBeginningOfSpeech() {
+                        notifyListeners("speechState", JSObject().apply { put("state", "listening") })
+                    }
+
+                    override fun onRmsChanged(rmsdB: Float) {}
+
+                    override fun onBufferReceived(buffer: ByteArray?) {}
+
+                    override fun onEndOfSpeech() {
+                        notifyListeners("speechState", JSObject().apply { put("state", "processing") })
+                    }
+
+                    override fun onError(error: Int) {
+                        isSpeechListening.set(false)
+                        val errorMsg = when (error) {
+                            SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
+                            SpeechRecognizer.ERROR_CLIENT -> "Client side error"
+                            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Insufficient permissions"
+                            SpeechRecognizer.ERROR_NETWORK -> "Network error"
+                            SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout"
+                            SpeechRecognizer.ERROR_NO_MATCH -> "No speech recognized"
+                            SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognition service busy"
+                            SpeechRecognizer.ERROR_SERVER -> "Server error"
+                            SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech detected"
+                            SpeechRecognizer.ERROR_SERVER_DISCONNECTED -> "Offline speech recognition disconnected or language pack unavailable"
+                            else -> "Speech recognition error ($error)"
+                        }
+
+                        notifyListeners("speechError", JSObject().apply {
+                            put("error", errorMsg)
+                            put("code", error)
+                        })
+
+                        notifyListeners("speechState", JSObject().apply {
+                            put("state", "idle")
+                        })
+                    }
+
+                    override fun onResults(results: Bundle?) {
+                        isSpeechListening.set(false)
+                        val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        val recognizedText = matches?.firstOrNull() ?: ""
+
+                        notifyListeners("speechResult", JSObject().apply {
+                            put("text", recognizedText)
+                        })
+
+                        notifyListeners("speechState", JSObject().apply {
+                            put("state", "idle")
+                        })
+                    }
+
+                    override fun onPartialResults(partialResults: Bundle?) {
+                        val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        val partialText = matches?.firstOrNull() ?: ""
+                        if (partialText.isNotEmpty()) {
+                            notifyListeners("speechPartial", JSObject().apply {
+                                put("text", partialText)
+                            })
+                        }
+                    }
+
+                    override fun onEvent(eventType: Int, params: Bundle?) {}
+                })
+
+                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
+                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                }
+
+                speechRecognizer?.startListening(intent)
+
+                val response = JSObject().apply {
+                    put("success", true)
+                    put("onDevice", usedOnDevice)
+                }
+                call.resolve(response)
+            } catch (e: Exception) {
+                isSpeechListening.set(false)
+                Log.e("WellnessPlugin", "Failed to start speech recognition", e)
+                val response = JSObject().apply {
+                    put("success", false)
+                    put("error", e.message ?: "Failed to start speech recognition")
+                }
+                call.resolve(response)
+            }
+        }
+    }
+
+    @PluginMethod
+    fun stopListening(call: PluginCall) {
+        mainHandler.post {
+            try {
+                speechRecognizer?.stopListening()
+                isSpeechListening.set(false)
+                notifyListeners("speechState", JSObject().apply { put("state", "idle") })
+                val response = JSObject().apply { put("success", true) }
+                call.resolve(response)
+            } catch (e: Exception) {
+                val response = JSObject().apply {
+                    put("success", false)
+                    put("error", e.message ?: "Failed to stop speech recognition")
+                }
+                call.resolve(response)
+            }
+        }
+    }
+
+    private fun cleanupSpeechRecognizer() {
+        try {
+            speechRecognizer?.cancel()
+            speechRecognizer?.destroy()
+        } catch (e: Exception) {
+            Log.w("WellnessPlugin", "Error cleaning up speech recognizer", e)
+        } finally {
+            speechRecognizer = null
+            isSpeechListening.set(false)
+        }
+    }
+
+    override fun handleOnDestroy() {
+        mainHandler.post {
+            cleanupSpeechRecognizer()
+        }
+        super.handleOnDestroy()
     }
 }
