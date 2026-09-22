@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { FaArrowUp } from "react-icons/fa6";
-import { IoMic, IoMicOutline } from "react-icons/io5";
 import ReactMarkdown from "react-markdown";
 import Navbar from "../Components/Ui/Navbar";
 import Bottombar from "../Components/Ui/botombar";
@@ -47,8 +46,6 @@ const Assistant = () => {
     const [activeMessageId, setActiveMessageId] = useState<number | null>(null);
     const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
     const [isInputFocused, setIsInputFocused] = useState(false);
-    const [isListening, setIsListening] = useState(false);
-    const [speechError, setSpeechError] = useState<string | null>(null);
 
     // Synchronous lock to prevent concurrent/rapid double submissions
     const isProcessingRef = useRef(false);
@@ -124,8 +121,8 @@ const Assistant = () => {
         setInput(event.target.value);
     };
 
-    const handleAskAI = async (overrideInput?: string) => {
-        const userInput = (overrideInput ?? input).trim();
+    const handleAskAI = async () => {
+        const userInput = input.trim();
 
         // Guard against empty input or already processing
         if (!userInput || isProcessingRef.current || loading) return;
@@ -237,102 +234,6 @@ const Assistant = () => {
         }
     };
 
-    // Keep reference to latest handleAskAI for speechResult event callback
-    const handleAskAIRef = useRef(handleAskAI);
-    handleAskAIRef.current = handleAskAI;
-
-    // Register native speech recognition listeners
-    useEffect(() => {
-        let isMounted = true;
-        const cleanupListeners: (() => void)[] = [];
-
-        (async () => {
-            try {
-                const hState = await Wellness.addListener("speechState", (data) => {
-                    if (isMounted) {
-                        setIsListening(data.state === "listening");
-                    }
-                });
-                cleanupListeners.push(() => hState.remove());
-
-                const hPartial = await Wellness.addListener("speechPartial", (data) => {
-                    if (isMounted && data.text) {
-                        setInput(data.text);
-                    }
-                });
-                cleanupListeners.push(() => hPartial.remove());
-
-                const hResult = await Wellness.addListener("speechResult", (data) => {
-                    if (isMounted) {
-                        setIsListening(false);
-                        const finalText = data.text?.trim();
-                        if (finalText) {
-                            setInput(finalText);
-                            handleAskAIRef.current(finalText);
-                        }
-                    }
-                });
-                cleanupListeners.push(() => hResult.remove());
-
-                const hError = await Wellness.addListener("speechError", (data) => {
-                    if (isMounted) {
-                        setIsListening(false);
-                        if (
-                            data.error &&
-                            data.error !== "No speech detected" &&
-                            data.error !== "No speech recognized"
-                        ) {
-                            setSpeechError(data.error);
-                            setTimeout(() => {
-                                if (isMounted) setSpeechError(null);
-                            }, 4000);
-                        }
-                    }
-                });
-                cleanupListeners.push(() => hError.remove());
-            } catch (err) {
-                console.warn("Speech recognition listener setup error:", err);
-            }
-        })();
-
-        return () => {
-            isMounted = false;
-            cleanupListeners.forEach((cleanup) => cleanup());
-            Wellness.stopListening().catch(() => {});
-        };
-    }, []);
-
-    const handleToggleListening = async () => {
-        if (loading) return;
-
-        if (isListening) {
-            try {
-                await Wellness.stopListening();
-            } catch (err) {
-                console.warn("Failed to stop listening:", err);
-            }
-            setIsListening(false);
-            return;
-        }
-
-        try {
-            setSpeechError(null);
-            const res = await Wellness.startListening();
-            if (res.permissionRequired) {
-                setSpeechError("Microphone permission required for voice input");
-                setTimeout(() => setSpeechError(null), 4000);
-            } else if (!res.success && res.error) {
-                setSpeechError(res.error);
-                setTimeout(() => setSpeechError(null), 4000);
-            } else {
-                setIsListening(true);
-            }
-        } catch (err) {
-            console.warn("Failed to start listening:", err);
-            setIsListening(false);
-        }
-    };
-
     return (
         <div className="h-dvh bg-black text-white flex flex-col overflow-hidden">
             {/* Top Navbar */}
@@ -441,33 +342,21 @@ const Assistant = () => {
                         }
                     `}
                 >
-                    {/* Speech error indicator */}
-                    {speechError && (
-                        <div className="w-full max-w-3xl mx-auto mb-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs text-center">
-                            {speechError}
-                        </div>
-                    )}
-
                     <div className="w-full max-w-3xl mx-auto flex items-center gap-2">
                         {/* INPUT */}
                         <div
-                            className={`
+                            className="
                                 flex-1
                                 border
+                                border-gray-600
                                 rounded-2xl
                                 overflow-hidden
-                                transition-colors
-                                ${
-                                    isListening
-                                        ? "border-red-500/60 bg-red-500/5 shadow-sm shadow-red-500/10"
-                                        : "border-gray-600 bg-transparent"
-                                }
-                            `}
+                            "
                         >
                             <input
                                 ref={inputRef}
                                 type="text"
-                                placeholder={isListening ? "Listening... Speak now" : "What's on your mind?"}
+                                placeholder="What's on your mind?"
                                 className="
                                     h-12
                                     sm:h-14
@@ -491,49 +380,12 @@ const Assistant = () => {
                             />
                         </div>
 
-                        {/* MICROPHONE BUTTON */}
-                        <button
-                            type="button"
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={handleToggleListening}
-                            disabled={loading}
-                            aria-label={isListening ? "Stop listening" : "Start voice input"}
-                            className={`
-                                shrink-0
-                                h-12
-                                w-12
-                                sm:h-14
-                                sm:w-14
-                                border
-                                rounded-full
-                                flex
-                                items-center
-                                justify-center
-                                cursor-pointer
-                                disabled:opacity-40
-                                disabled:cursor-not-allowed
-                                active:scale-95
-                                transition-all
-                                ${
-                                    isListening
-                                        ? "border-red-500 bg-red-500/20 text-red-400 shadow-md shadow-red-500/30 animate-pulse"
-                                        : "border-gray-600 text-gray-300 hover:text-white hover:border-gray-500"
-                                }
-                            `}
-                        >
-                            {isListening ? (
-                                <IoMic className="h-5 w-5" />
-                            ) : (
-                                <IoMicOutline className="h-5 w-5" />
-                            )}
-                        </button>
-
                         {/* SEND BUTTON */}
                         <button
                             type="button"
                             onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => handleAskAI()}
-                            disabled={!input.trim() || loading || isListening}
+                            onClick={handleAskAI}
+                            disabled={!input.trim() || loading}
                             aria-label="Send message"
                             className="
                                 shrink-0

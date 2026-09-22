@@ -9,37 +9,6 @@ export interface ModelSetupProgressPayload {
   error?: string;
 }
 
-export interface SpeechAvailability {
-  available: boolean;
-  onDeviceAvailable: boolean;
-}
-
-export interface SpeechStartResult {
-  success: boolean;
-  onDevice?: boolean;
-  permissionRequired?: boolean;
-  message?: string;
-  error?: string;
-}
-
-export interface SpeechStopResult {
-  success: boolean;
-  error?: string;
-}
-
-export interface SpeechStateEvent {
-  state: 'idle' | 'listening' | 'processing';
-}
-
-export interface SpeechTextEvent {
-  text: string;
-}
-
-export interface SpeechErrorEvent {
-  error: string;
-  code?: number;
-}
-
 export interface WellnessPlugin {
   prepareQwenModel(): Promise<{
     started?: boolean;
@@ -105,32 +74,6 @@ export interface WellnessPlugin {
     runtime: string;
     model: string;
   }>;
-
-  getSpeechAvailability(): Promise<SpeechAvailability>;
-
-  startListening(): Promise<SpeechStartResult>;
-
-  stopListening(): Promise<SpeechStopResult>;
-
-  addListener(
-    eventName: 'speechState',
-    listenerFunc: (event: SpeechStateEvent) => void
-  ): Promise<PluginListenerHandle>;
-
-  addListener(
-    eventName: 'speechPartial',
-    listenerFunc: (event: SpeechTextEvent) => void
-  ): Promise<PluginListenerHandle>;
-
-  addListener(
-    eventName: 'speechResult',
-    listenerFunc: (event: SpeechTextEvent) => void
-  ): Promise<PluginListenerHandle>;
-
-  addListener(
-    eventName: 'speechError',
-    listenerFunc: (event: SpeechErrorEvent) => void
-  ): Promise<PluginListenerHandle>;
 }
 
 export const Wellness = registerPlugin<WellnessPlugin>('Wellness');
