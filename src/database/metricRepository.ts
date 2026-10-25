@@ -370,6 +370,20 @@ export const getMetricLogs = async (
     );
 };
 
+export const getMetricLogsInRange = async (startDate: string, endDate: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || startDate > endDate) {
+        throw new Error("Choose a valid metric report date range.");
+    }
+    const db = await initDatabase();
+    const result = await db.query(`
+        SELECT id, metric_id, value, timestamp, note
+        FROM metric_logs
+        WHERE date(timestamp, 'localtime') BETWEEN ? AND ?
+        ORDER BY timestamp ASC, id ASC
+    `, [startDate, endDate]);
+    return (result.values ?? []).map(row => mapMetricLog(row as Record<string, unknown>));
+};
+
 export const getMetricDailySummary = async (
     metricId: number,
     startDate: string,
