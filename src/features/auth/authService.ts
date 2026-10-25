@@ -2,6 +2,7 @@ import { Capacitor } from "@capacitor/core";
 import { initDatabase } from "../../database/configDatabase";
 
 const SESSION_KEY = "personal-os.account-id";
+const LEGACY_SESSION_KEY = SESSION_KEY;
 const PBKDF2_ITERATIONS = 310_000;
 const SESSION_EVENT = "personal-os:session-change";
 
@@ -41,8 +42,20 @@ const derivePasswordHash = async (password: string, salt: Uint8Array, iterations
 };
 
 const setSession = (account: LocalAccount | null) => {
-  if (account) sessionStorage.setItem(SESSION_KEY, String(account.id));
-  else sessionStorage.removeItem(SESSION_KEY);
+  if (account) {
+    // A local account ID is a convenience marker, not an authentication token.
+    // localStorage persists across Capacitor WebView launches and browser restarts.
+    try {
+      localStorage.setItem(SESSION_KEY, String(account.id));
+      sessionStorage.removeItem(LEGACY_SESSION_KEY);
+    } catch {
+      // Keep the current tab usable if persistent browser storage is unavailable.
+      sessionStorage.setItem(LEGACY_SESSION_KEY, String(account.id));
+    }
+  } else {
+    try { localStorage.removeItem(SESSION_KEY); } catch { /* Storage may be unavailable. */ }
+    try { sessionStorage.removeItem(LEGACY_SESSION_KEY); } catch { /* Storage may be unavailable. */ }
+  }
   window.dispatchEvent(new Event(SESSION_EVENT));
 };
 
@@ -110,7 +123,19 @@ export const loginAccount = async (emailInput: string, password: string) => {
 };
 
 export const restoreLocalSession = async (): Promise<LocalAccount | null> => {
-  const storedId = sessionStorage.getItem(SESSION_KEY);
+  let storedId: string | null;
+  try {
+    const persistentId = localStorage.getItem(SESSION_KEY);
+    storedId = persistentId;
+    if (persistentId === null) {
+      // Upgrade an existing tab session once so users are not unexpectedly signed out.
+      storedId = sessionStorage.getItem(LEGACY_SESSION_KEY);
+      if (storedId !== null) localStorage.setItem(SESSION_KEY, storedId);
+    }
+  } catch {
+    try { sessionStorage.removeItem(LEGACY_SESSION_KEY); } catch { /* Storage may be unavailable. */ }
+    return null;
+  }
   if (!storedId) return null;
   const id = Number(storedId);
   if (!Number.isSafeInteger(id) || id <= 0) {
@@ -121,6 +146,9 @@ export const restoreLocalSession = async (): Promise<LocalAccount | null> => {
   const result = await db.query("SELECT id, email FROM local_accounts WHERE id = ?", [id]);
   const account = toAccount(result.values?.[0] as Record<string, unknown> | undefined);
   if (!account) setSession(null);
+  else {
+    try { sessionStorage.removeItem(LEGACY_SESSION_KEY); } catch { /* Storage may be unavailable. */ }
+  }
   return account;
 };
 

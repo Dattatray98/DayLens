@@ -28,3 +28,176 @@
 @media(max-width:1000px){.reports-stat-grid,.reports-diet-averages{grid-template-columns:repeat(2,minmax(0,1fr))}.reports-chart-grid{grid-template-columns:1fr}.reports-metric-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:720px){.reports-heading{align-items:flex-start}.reports-heading>.secondary-button{display:none}.reports-export-mobile{display:inline-flex}.reports-period{align-items:stretch;flex-direction:column}.reports-period-tabs{justify-content:space-between}.reports-period-tabs button{flex:1;padding:8px 5px;font-size:10px}.reports-custom-range{justify-content:space-between}.reports-custom-range label{flex:1;display:grid;gap:5px}.reports-custom-range input{width:100%;box-sizing:border-box}.reports-chart-grid,.reports-metric-grid{grid-template-columns:1fr}.reports-table-wrap{max-height:310px}.reports-chart{height:230px}.reports-chart-tall{height:320px}}
 @media(max-width:420px){.reports-stat-grid,.reports-diet-averages{grid-template-columns:1fr 1fr;gap:7px}.reports-stat{padding:11px}.reports-stat>strong{font-size:15px}.reports-stat>small{font-size:8px}.reports-chart-card,.reports-table-card,.reports-metric-card{padding:12px}.reports-metric-summary{align-items:flex-start;flex-direction:column}.reports-metric-summary span{text-align:left}.reports-chart-tall{height:290px}}
+
+/* Responsive type and WebView-safe spacing for touch devices. */
+:root {
+  font-size: clamp(15px, calc(14.5px + 0.15vw), 17px);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  font-size: 1rem;
+  overflow-wrap: break-word;
+}
+
+.app-frame,
+.main-column,
+.page-content,
+.overview-grid,
+.lower-grid,
+.money-page,
+.diet-page,
+.notes-page,
+.reports-page {
+  min-width: 0;
+}
+
+.page-heading h1 {
+  font-size: clamp(1.75rem, 2.2vw, 2.125rem);
+  line-height: 1.15;
+}
+
+.page-heading p,
+.form-help,
+.muted {
+  font-size: clamp(.875rem, .25vw + .82rem, 1rem);
+  line-height: 1.55;
+}
+
+.topbar,
+.page-content,
+.app-footer {
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  body { font-size: 16px; }
+  .auth-screen { min-height: 100svh; }
+  .auth-story {
+    height: auto;
+    min-height: calc(150px + env(safe-area-inset-top));
+    padding: calc(20px + env(safe-area-inset-top)) 22px 18px;
+  }
+  .auth-panel {
+    padding: 24px 22px calc(28px + env(safe-area-inset-bottom));
+  }
+  .auth-form-wrap { margin-top: clamp(12px, 5vh, 38px); }
+  .auth-form-wrap h2 { font-size: clamp(1.6rem, 6vw, 1.9rem); line-height: 1.2; }
+  .form-stack label,
+  .notes-title-label,
+  .notes-content-label,
+  .money-form label { font-size: 14px; }
+  .form-stack input,
+  .money-form input,
+  .money-form select,
+  .money-form textarea,
+  .diet-modal input,
+  .diet-modal select,
+  .diet-modal textarea,
+  .notes-title-label input,
+  .notes-content-label textarea,
+  .reports-custom-range input,
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+  .primary-button,
+  .secondary-button,
+  .danger-button,
+  .theme-toggle,
+  .reports-period-tabs button,
+  .diet-tabs button,
+  .kind-switch button {
+    font-size: 14px;
+    min-height: 44px;
+  }
+  .nav-link { min-height: 48px; height: auto; font-size: 16px; }
+  .local-card strong,
+  .account-info strong { font-size: 14px; }
+  .local-card span:not(.status-dot),
+  .account-info span { font-size: 12px; }
+  .sidebar {
+    padding-top: calc(23px + env(safe-area-inset-top));
+    padding-bottom: calc(15px + env(safe-area-inset-bottom));
+  }
+  .main-column { min-height: 100svh; }
+  .topbar {
+    height: calc(55px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) 14px 0;
+  }
+  .page-content { padding: 24px 16px 22px; }
+  .page-heading { gap: 12px; }
+  .page-heading h1 { font-size: clamp(1.75rem, 7vw, 2rem); }
+  .page-heading p { font-size: 15px; }
+  .app-footer {
+    min-height: calc(35px + env(safe-area-inset-bottom));
+    height: auto;
+    padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+    font-size: 12px;
+  }
+  .modal-backdrop { padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); }
+  .money-modal,
+  .diet-modal { max-height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px); }
+  .money-card-label,
+  .money-card-foot,
+  .money-stat-heading,
+  .category-bar-row>div,
+  .category-counts>span,
+  .money-small-empty,
+  .money-inline-loading,
+  .money-alert,
+  .diet-card-meta,
+  .diet-incomplete-note,
+  .diet-entry-time span,
+  .diet-entry-main>span,
+  .diet-food-name span,
+  .diet-legacy-note,
+  .reports-range-label,
+  .reports-stat>span,
+  .reports-stat>small,
+  .reports-chart-card>p,
+  .reports-table-card>p,
+  .reports-empty p,
+  .reports-state p,
+  .reports-metric-summary span,
+  .reports-metric-empty,
+  .notes-dates,
+  .notes-editor-foot,
+  .settings-section p {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .transaction-table th,
+  .transaction-table td,
+  .transaction-table td small,
+  .reports-table-wrap table,
+  .reports-table-wrap th,
+  .reports-table-wrap td,
+  .reports-category-summary li,
+  .diet-entry-nutrients small,
+  .diet-entry-nutrients b,
+  .diet-food-values small,
+  .diet-food-values b {
+    font-size: 12px;
+  }
+  .transaction-table-wrap,
+  .reports-table-wrap { max-width: 100%; overscroll-behavior-x: contain; }
+  .reports-stat>strong { font-size: clamp(1rem, 4.5vw, 1.2rem); }
+  .section-kicker,
+  .app-frame .section-kicker { font-size: 11px; }
+  .topbar .breadcrumb { font-size: 12px; }
+}
+
+@media (max-width: 360px) {
+  .page-content { padding-inline: 12px; }
+  .topbar { padding-inline: 10px; }
+  .money-panel,
+  .diet-panel,
+  .reports-chart-card,
+  .reports-table-card,
+  .reports-metric-card { padding-inline: 10px; }
+  .reports-period-tabs button { padding-inline: 3px; font-size: 12px; }
+  .notes-editor-actions { gap: 5px; }
+}
