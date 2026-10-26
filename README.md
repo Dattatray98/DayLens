@@ -34,9 +34,10 @@ For web use, the SQLite database is persisted through the browser storage integr
 
 ## Getting started
 
-Install dependencies and start the local development server:
+Install dependencies and start the local development server from `ClientApplication`:
 
 ```sh
+cd ClientApplication
 npm install
 npm run dev
 ```
@@ -55,6 +56,7 @@ Vite prints the local development URL in the terminal.
 ## Production build
 
 ```sh
+cd ClientApplication
 npm run build
 npm run preview
 ```
@@ -68,19 +70,18 @@ Because authentication is local-only, it provides convenience within this protot
 ## Project layout
 
 ```text
-src/
-  Components/       Shared UI, startup, and model setup components
-  database/         Database setup and wellness data repositories
-  features/
-    auth/           Local registration and login
-    diet/           Food, diary, and nutrition functionality
-    money/          Transactions and financial summaries
-    notes/          Local note-taking
-    reports/        Reports and trend summaries
-  pages/            Overview, settings, and other application pages
-  tools/            Assistant tools and intent handling
-  App.tsx           Application routes and shared shell
-  index.css         Global styles and design system
+ClientApplication/
+  src/
+    Components/     Shared UI, startup, and model setup components
+    database/       Database setup and wellness data repositories
+    features/       Authentication, Diet, Money, Notes, and Reports
+    pages/          Overview, settings, and other application pages
+    tools/          Assistant tools and intent handling
+    App.tsx         Application routes and shared shell
+    index.css       Global styles and design system
+  package.json      App scripts and dependencies
+  vite.config.ts    Vite configuration
+android/            Native Android project
 ```
 
 ## License
