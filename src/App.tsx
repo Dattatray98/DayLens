@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { BrowserRouter, Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { FiActivity, FiArrowUpRight, FiBookOpen, FiCalendar, FiChevronDown, FiCircle, FiCreditCard, FiFileText, FiHome, FiLogOut, FiMenu, FiMoon, FiPlus, FiSettings, FiSun } from "react-icons/fi";
+import { FiActivity, FiArrowUpRight, FiBookOpen, FiCalendar, FiChevronDown, FiCreditCard, FiFileText, FiHome, FiLogOut, FiMoon, FiPlus, FiSettings, FiSun } from "react-icons/fi";
+import appIcon from "../assets/icon.png";
+import LogoStartupScreen from "./Components/Startup/LogoStartupScreen";
 import { AuthProvider } from "./features/auth/AuthProvider";
 import { useAuth } from "./features/auth/useAuth";
 import MoneyPage from "./features/money/MoneyPage";
@@ -11,6 +13,17 @@ import NotesPage from "./features/notes/NotesPage";
 const ReportsPage = lazy(() => import("./features/reports/ReportsPage"));
 
 type ModuleKey = "overview" | "money" | "diet" | "notes" | "reports" | "settings";
+const themePreferenceKey = "personal-os-theme";
+
+function readThemePreference(): "light" | "dark" {
+  try {
+    const savedTheme = window.localStorage.getItem(themePreferenceKey);
+    return savedTheme === "dark" || savedTheme === "light" ? savedTheme : "light";
+  } catch {
+    return "light";
+  }
+}
+
 const navItems: { path: string; label: string; icon: typeof FiHome; key: ModuleKey }[] = [
   { path: "/overview", label: "Overview", icon: FiHome, key: "overview" },
   { path: "/money", label: "Money", icon: FiCreditCard, key: "money" },
@@ -26,8 +39,31 @@ function App() {
 
 function AppRoutes() {
   const { account, loading } = useAuth();
-  if (loading) return <div className="boot-screen" role="status">Opening your local workspace…</div>;
-  return <Routes>
+  const [startupComplete, setStartupComplete] = useState(false);
+  const [startupVisible, setStartupVisible] = useState(true);
+  const startupTheme = readThemePreference();
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setStartupComplete(true);
+      return;
+    }
+    // CSS animationend is the normal completion signal; this only prevents a
+    // broken or throttled animation from leaving the startup screen stuck.
+    const timer = window.setTimeout(() => setStartupComplete(true), 2600);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (loading || !startupComplete || !startupVisible) return;
+    const timer = window.setTimeout(() => setStartupVisible(false), 600);
+    return () => window.clearTimeout(timer);
+  }, [loading, startupComplete, startupVisible]);
+
+  const completeStartupAnimation = () => setStartupComplete(true);
+  const finishStartupExit = () => setStartupVisible(false);
+
+  const application = <Routes>
     <Route path="/login" element={account ? <Navigate to="/overview" replace /> : <AuthPage mode="login" />} />
     <Route path="/register" element={account ? <Navigate to="/overview" replace /> : <AuthPage mode="register" />} />
     <Route element={account ? <AppShell /> : <Navigate to="/login" replace />}>
@@ -44,6 +80,7 @@ function AppRoutes() {
       <Route path="*" element={<Navigate to="/overview" replace />} />
     </Route>
   </Routes>;
+  return <>{loading ? null : application}{startupVisible && <LogoStartupScreen theme={startupTheme} isExiting={!loading && startupComplete} onAnimationComplete={completeStartupAnimation} onExitComplete={finishStartupExit} />}</>;
 }
 
 function AuthPage({ mode }: { mode: "login" | "register" }) {
@@ -62,13 +99,14 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
     finally { setBusy(false); }
   };
   return <main className="auth-screen">
-    <section className="auth-story" aria-label="Personal OS">
-      <Link className="brand" to="/login"><span className="brand-mark"><FiCircle /></span><span>personal<span className="brand-light">OS</span></span></Link>
-      <div className="story-copy"><span className="section-kicker">YOUR PERSONAL WORKSPACE</span><h1>A little more<br />room to think.</h1><p>Money, meals, and notes in one calm place. Kept on this device.</p></div>
+    <section className="auth-story" aria-label="Daylens">
+      <Link className="brand" to="/login"><span className="brand-mark"><img src={appIcon} alt="" /></span><span>Daylens</span></Link>
+      <div className="story-copy"><span className="section-kicker">YOUR PERSONAL WORKSPACE</span><h1>See your life<br />more clearly.</h1><p>Your personal space for money, nutrition, wellness, notes, and insights.</p></div>
       <div className="story-foot"><span className="status-dot" /> Private by default <span>·</span> Stored locally</div>
     </section>
     <section className="auth-panel"><div className="auth-form-wrap">
       <span className="section-kicker">{isRegister ? "START YOUR WORKSPACE" : "WELCOME BACK"}</span>
+      <p className="auth-mobile-tagline">See your life more clearly.</p>
       <h2>{isRegister ? "Create your account" : "Sign in"}</h2>
       <p className="muted">{isRegister ? "One local account, just for this browser." : "Your workspace is waiting on this device."}</p>
       <form onSubmit={submit} className="form-stack">
@@ -77,7 +115,7 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
         {error && <p className="form-error" role="alert">{error}</p>}
         <button className="primary-button full-button" disabled={busy} type="submit">{busy ? "Please wait…" : isRegister ? "Create account" : "Sign in"}</button>
       </form>
-      <p className="auth-switch">{isRegister ? "Already have an account?" : "New to Personal OS?"} <Link to={isRegister ? "/login" : "/register"}>{isRegister ? "Sign in" : "Create an account"}</Link></p>
+      <p className="auth-switch">{isRegister ? "Already have an account?" : "New to Daylens?"} <Link to={isRegister ? "/login" : "/register"}>{isRegister ? "Sign in" : "Create an account"}</Link></p>
       <p className="security-note">Local prototype authentication. This does not protect data from someone who can access this device or browser storage.</p>
     </div></section>
   </main>;
@@ -85,25 +123,27 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
 
 function AppShell() {
   const { account, logout } = useAuth();
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const page = navItems.find(item => item.path === location.pathname)?.label ?? "Overview";
+  const [theme, setTheme] = useState<"light" | "dark">(readThemePreference);
+  useEffect(() => {
+    try { window.localStorage.setItem(themePreferenceKey, theme); }
+    catch { /* Keep the selected theme for this session when storage is unavailable. */ }
+  }, [theme]);
   const initials = account?.email.slice(0, 1).toUpperCase() ?? "P";
   return <div className={`app-frame theme-${theme}`}>
-    {mobileOpen && <button className="scrim" aria-label="Close navigation" onClick={() => setMobileOpen(false)} />}
-    <aside className={`sidebar ${mobileOpen ? "sidebar-open" : ""}`}>
-      <Link className="brand" to="/overview" onClick={() => setMobileOpen(false)}><span className="brand-mark"><FiCircle /></span><span>personal<span className="brand-light">OS</span></span></Link>
+    <aside className="sidebar">
+      <Link className="brand" to="/overview"><span className="brand-mark"><img src={appIcon} alt="" /></span><span>Daylens</span></Link>
       <span className="nav-caption">WORKSPACE</span>
-      <nav className="side-nav" aria-label="Main navigation">{navItems.map(item => { const Icon = item.icon; return <NavLink key={item.path} end to={item.path} onClick={() => setMobileOpen(false)} className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}><Icon aria-hidden="true" /><span>{item.label}</span>{item.key === "overview" && <span className="nav-active-dot" />}</NavLink>; })}</nav>
+      <nav className="side-nav" aria-label="Main navigation">{navItems.map(item => { const Icon = item.icon; return <NavLink key={item.path} end to={item.path} className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}><Icon aria-hidden="true" /><span>{item.label}</span>{item.key === "overview" && <span className="nav-active-dot" />}</NavLink>; })}</nav>
       <div className="sidebar-spacer" />
       <div className="local-card"><span className="status-dot" /><div><strong>On this device</strong><span>Local workspace</span></div></div>
       <div className="account-row"><span className="avatar">{initials}</span><span className="account-info"><strong>{account?.email}</strong><span>Personal account</span></span><button className="icon-button" title="Sign out" aria-label="Sign out" onClick={logout}><FiLogOut /></button></div>
     </aside>
-    <div className="main-column"><header className="topbar"><button className="icon-button mobile-menu" aria-label="Open navigation" onClick={() => setMobileOpen(true)}><FiMenu /></button><div className="breadcrumb"><span>Workspace</span><span className="crumb-slash">/</span><strong>{page}</strong></div><div className="topbar-actions"><span className="today-label"><FiCalendar /> {new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" }).format(new Date())}</span><button className="theme-toggle" aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`} onClick={() => setTheme(v => v === "light" ? "dark" : "light")}>{theme === "light" ? <FiMoon /> : <FiSun />}<span>{theme === "light" ? "Dark" : "Light"}</span></button></div></header>
+    <div className="main-column"><header className="topbar"><Link to="/overview" className="breadcrumb app-name" aria-label="Daylens overview"><img src={appIcon} alt="" /><strong>Daylens</strong></Link><div className="topbar-actions"><span className="today-label"><FiCalendar /> {new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" }).format(new Date())}</span><NavLink to="/settings" aria-label="Settings" title="Settings" className={({ isActive }) => `icon-button mobile-settings ${isActive ? "active" : ""}`}><FiSettings /></NavLink><button className="theme-toggle" aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`} onClick={() => setTheme(v => v === "light" ? "dark" : "light")}>{theme === "light" ? <FiMoon /> : <FiSun />}<span>{theme === "light" ? "Dark" : "Light"}</span></button></div></header>
       <main className="page-content"><Outlet /></main>
-      <footer className="app-footer">Personal OS <span>·</span> Local prototype</footer>
+      <footer className="app-footer">Daylens <span>·</span> Your data stays on this device</footer>
     </div>
+    <nav className="mobile-bottom-nav" aria-label="Main navigation">{navItems.filter(item => item.key !== "settings").map(item => { const Icon = item.icon; return <NavLink key={item.path} end to={item.path} onClick={event => { if (location.pathname === item.path) { event.preventDefault(); window.location.reload(); } }} className={({ isActive }) => `mobile-nav-link ${isActive ? "active" : ""}`}><Icon aria-hidden="true" /><span>{item.label}</span></NavLink>; })}</nav>
   </div>;
 }
 
@@ -137,19 +177,29 @@ function OverviewPage() {
   }, [dietDate]);
 
   const calories = dietSummary?.totals.calories;
-  const caloriesText = dietLoadError ? "Unavailable" : !dietSummary?.entryCount ? "—" : `${calories?.complete ? "" : "≥ "}${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(calories?.value ?? 0)} kcal`;
+  const formatNutrition = (value: number) => new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(value);
+  const calorieTarget = dietSummary?.targets.calories;
+  const caloriesDisplay = dietLoadError
+    ? "Unavailable"
+    : !dietSummary?.entryCount
+      ? "—"
+      : calories?.complete
+        ? <>{formatNutrition(calories.value)}{calorieTarget == null ? null : <span className="diet-target-value">/{formatNutrition(calorieTarget)}</span>} kcal</>
+        : <>≥ {formatNutrition(calories?.value ?? 0)} kcal</>;
   const nutrientOverview = (nutrient: "protein" | "carbohydrates" | "fat", label: string) => {
     const total = dietSummary?.totals[nutrient];
-    const value = !dietSummary?.entryCount ? "—" : `${total?.complete ? "" : "≥ "}${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(total?.value ?? 0)} g${total?.complete ? "" : " · incomplete"}`;
     const target = dietSummary?.targets[nutrient];
-    const progress = dietLoadError ? "Could not load nutrition" : !dietSummary?.entryCount ? "No entries" : !target ? "Target not set" : !total?.complete ? "Progress unavailable" : `${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(Math.max(0, target - total.value))} g remaining`;
-    return <span key={nutrient}>{label} <b>{dietLoadError ? "Unavailable" : value}</b><small>{progress}</small></span>;
+    const value = !dietSummary?.entryCount
+      ? "—"
+      : <>{total?.complete ? formatNutrition(total.value) : <>≥ {formatNutrition(total?.value ?? 0)}</>}{total?.complete && target != null ? <span className="diet-target-value">/{formatNutrition(target)}</span> : null} g</>;
+    const progress = dietLoadError ? "Could not load nutrition" : !dietSummary?.entryCount ? "No entries" : target == null ? "Target not set" : !total?.complete ? "Target progress unavailable · incomplete data" : `${formatNutrition(Math.max(0, target - total.value))} g remaining`;
+    return <span key={nutrient}><span>{label}</span><b>{dietLoadError ? "Unavailable" : value}</b><small>{progress}</small></span>;
   };
   return <>
     <PageHeading eyebrow={today.toUpperCase()} title="A clear view of your day." detail="Your personal space for the things you want to keep track of." />
     <section className="overview-grid" aria-label="Personal overview">
       <article className="summary-panel money-panel"><div className="panel-top"><span className="panel-icon"><FiCreditCard /></span><Link to="/money" className="subtle-link">Open Money <FiArrowUpRight /></Link></div><h2>Money</h2><p className="panel-description">Your income, expenses, and balance.</p><div className="empty-metric"><span>Balance</span><strong>{moneyLoadError ? "Unavailable" : moneySummary ? formatRupees(moneySummary.balancePaise) : "Loading…"}</strong><small>{moneySummary ? `Opening balance ${formatRupees(moneySummary.openingBalancePaise)}` : moneyLoadError ? "Could not load financial data" : "Loading local records"}</small></div><div className="panel-rule" /><div className="mini-split"><div><span>This month in</span><strong>{moneySummary ? formatRupees(moneySummary.monthIncomePaise) : "—"}</strong></div><div><span>This month out</span><strong>{moneySummary ? formatRupees(moneySummary.monthExpensesPaise) : "—"}</strong></div></div></article>
-      <article className="summary-panel diet-panel"><div className="panel-top"><span className="panel-icon"><FiActivity /></span><Link to="/diet" className="subtle-link">Open Diet <FiArrowUpRight /></Link></div><h2>Diet</h2><p className="panel-description">Today's logged nutrition.</p><div className="empty-metric"><span>Calories</span><strong>{dietSummary ? caloriesText : dietLoadError ? "Unavailable" : "Loading…"}</strong><small>{dietLoadError ? "Could not load nutrition data" : !dietSummary?.entryCount ? "No food entries yet" : calories?.complete ? `${dietSummary.entryCount} food ${dietSummary.entryCount === 1 ? "entry" : "entries"}` : "Known subtotal · incomplete"}</small></div><div className="diet-overview-macros">{nutrientOverview("protein", "Protein")}{nutrientOverview("carbohydrates", "Carbs")}{nutrientOverview("fat", "Fat")}</div>{dietSummary?.recentEntries.length ? <p className="diet-overview-recent">Recent: {dietSummary.recentEntries.map(entry => entry.foodName).join(", ")}</p> : null}</article>
+      <article className="summary-panel diet-panel"><div className="panel-top"><span className="panel-icon"><FiActivity /></span><Link to="/diet" className="subtle-link">Open Diet <FiArrowUpRight /></Link></div><h2>Diet</h2><p className="panel-description">Today's logged nutrition.</p><div className="empty-metric diet-calorie-metric"><div className="diet-calorie-primary"><span>Calories</span><strong>{dietSummary ? caloriesDisplay : dietLoadError ? "Unavailable" : "Loading…"}</strong>{dietLoadError ? <small>Could not load nutrition data</small> : dietSummary && !dietSummary.entryCount ? <small>No food entries yet</small> : dietSummary && !calories?.complete ? <small>Known subtotal · incomplete</small> : null}</div><div className="diet-calorie-meta">{dietSummary?.recentEntries.length ? <span>Recent: {dietSummary.recentEntries.map(entry => entry.foodName).join(", ")}</span> : null}{dietSummary?.entryCount ? <span>{dietSummary.entryCount} food {dietSummary.entryCount === 1 ? "entry" : "entries"}</span> : null}</div></div><div className="diet-overview-macros">{nutrientOverview("protein", "Protein")}{nutrientOverview("carbohydrates", "Carbs")}{nutrientOverview("fat", "Fat")}</div></article>
     </section>
     <section className="lower-grid"><article className="content-panel"><div className="content-heading"><div><h2>Recent activity</h2><p>Your latest entries will appear here.</p></div><button className="icon-button" aria-label="More about recent activity"><FiChevronDown /></button></div><div className="activity-empty"><span className="empty-symbol"><FiActivity /></span><strong>Your workspace is ready</strong><p>Once you add something to Money, Diet, or Notes, you’ll find it here.</p></div></article><article className="content-panel quick-panel"><div className="content-heading"><div><h2>Quick access</h2><p>Go straight to a module.</p></div></div><div className="quick-list"><button onClick={() => navigate("/money")}><span className="quick-icon"><FiCreditCard /></span><span><strong>Add a transaction</strong><small>Income or expense</small></span><FiArrowUpRight /></button><button onClick={() => navigate("/diet")}><span className="quick-icon"><FiActivity /></span><span><strong>Log food</strong><small>Record a meal or snack</small></span><FiArrowUpRight /></button><button onClick={() => navigate("/notes")}><span className="quick-icon"><FiPlus /></span><span><strong>Write a note</strong><small>Capture a thought</small></span><FiArrowUpRight /></button></div></article></section>
     <p className="storage-boundary">Money, Diet, and Notes records are saved locally on this device. Preference storage is not enabled yet.</p>

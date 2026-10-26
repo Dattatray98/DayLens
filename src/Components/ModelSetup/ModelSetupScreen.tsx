@@ -1,4 +1,5 @@
 import React from 'react';
+import appIcon from '../../../assets/icon.png';
 import { FaShieldHalved, FaArrowRotateRight } from 'react-icons/fa6';
 import { MdErrorOutline, MdCheckCircleOutline } from 'react-icons/md';
 
@@ -39,12 +40,12 @@ const statusConfig: Record<
   preparing: {
     title: 'Preparing local AI',
     subtitle: 'Checking the on-device model.',
-    dotClass: 'bg-[#0EA5E9]',
+    dotClass: 'bg-[#9bc3a5]',
   },
   downloading: {
     title: 'Downloading local AI',
     subtitle: 'Downloading on-device intelligence model for offline use.',
-    dotClass: 'bg-[#0EA5E9]',
+    dotClass: 'bg-[#9bc3a5]',
   },
   verifying: {
     title: 'Verifying local AI',
@@ -77,17 +78,17 @@ export const ModelSetupScreen: React.FC<ModelSetupScreenProps> = ({
   return (
     <div className="min-h-screen bg-[#0E1012] text-white flex flex-col justify-between px-4 sm:px-6 py-6 sm:py-8 relative overflow-hidden select-none">
       {/* Subtle ambient lighting */}
-      <div className="bg-[#009ADA] blur-[140px] absolute -top-16 -right-16 h-64 w-64 opacity-25 pointer-events-none" />
-      <div className="bg-[#3B82F6] blur-[150px] absolute -bottom-16 -left-16 h-64 w-64 opacity-20 pointer-events-none" />
+      <div className="bg-[#315c48] blur-[140px] absolute -top-16 -right-16 h-64 w-64 opacity-25 pointer-events-none" />
+      <div className="bg-[#9bc3a5] blur-[150px] absolute -bottom-16 -left-16 h-64 w-64 opacity-20 pointer-events-none" />
 
       {/* Top Header / Status Pill */}
       <header className="relative z-10 flex items-center justify-between w-full max-w-sm mx-auto">
         <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-md bg-[#0EA5E9]/15 border border-[#0EA5E9]/30 flex items-center justify-center">
-            <span className="text-[#0EA5E9] font-black text-[10px] leading-none">W</span>
+          <div className="w-5 h-5 rounded-md bg-[#9bc3a5]/15 border border-[#9bc3a5]/30 flex items-center justify-center">
+            <img src={appIcon} alt="" className="h-5 w-5 rounded-md object-cover" />
           </div>
           <span className="text-xs font-semibold tracking-tight text-white/90">
-            wellNess Voice
+            Daylens
           </span>
         </div>
         <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[#909193] font-medium font-mono">
@@ -99,28 +100,21 @@ export const ModelSetupScreen: React.FC<ModelSetupScreenProps> = ({
       <main className="relative z-10 flex flex-col items-center text-center my-auto py-6 sm:py-8 w-full max-w-sm mx-auto">
         {/* Brand Emblem */}
         <div className="relative mb-4 flex items-center justify-center">
-          <div className="absolute inset-0 rounded-2xl bg-[#0EA5E9]/20 blur-xl pointer-events-none" />
-          <div className="relative h-16 w-16 sm:h-18 sm:w-18 rounded-2xl bg-[#1b1d1f] border border-[#0EA5E9]/30 flex items-center justify-center shadow-xl shadow-cyan-950/40">
+          <div className="absolute inset-0 rounded-2xl bg-[#9bc3a5]/20 blur-xl pointer-events-none" />
+          <div className="relative h-16 w-16 sm:h-18 sm:w-18 rounded-2xl bg-[#1b1d1f] border border-[#9bc3a5]/30 flex items-center justify-center shadow-xl shadow-emerald-950/40">
             {status === 'error' ? (
               <MdErrorOutline className="h-8 sm:h-9 w-8 sm:w-9 text-rose-500" />
             ) : status === 'ready' ? (
               <MdCheckCircleOutline className="h-8 sm:h-9 w-8 sm:w-9 text-emerald-400" />
             ) : (
-              <span className="text-[#0EA5E9] font-black text-2xl sm:text-3xl tracking-tighter select-none">
-                W
-              </span>
+              <img src={appIcon} alt="" className="h-16 w-16 sm:h-[4.5rem] sm:w-[4.5rem] rounded-2xl object-cover" />
             )}
           </div>
         </div>
 
         {/* App Title */}
         <div className="flex items-center justify-center mb-5">
-          <span className="font-bold text-lg sm:text-xl tracking-tight text-white">
-            well<span className="text-[#0EA5E9]">Ness</span>
-          </span>
-          <span className="text-white/80 font-medium text-lg sm:text-xl ml-1">
-            Voice
-          </span>
+          <span className="font-bold text-lg sm:text-xl tracking-tight text-white">Daylens</span>
         </div>
 
         {/* Phase Pill */}
@@ -150,7 +144,7 @@ export const ModelSetupScreen: React.FC<ModelSetupScreenProps> = ({
             className="w-full bg-[#1b1d1f] border border-white/10 rounded-2xl p-4 sm:p-5 shadow-lg space-y-3"
           >
             <div className="w-full bg-[#26292d] rounded-full h-2.5 overflow-hidden">
-              <div className="bg-gradient-to-r from-[#009ADA] to-[#0EA5E9] h-full rounded-full w-2/5 animate-pulse" />
+              <div className="bg-gradient-to-r from-[#315c48] to-[#9bc3a5] h-full rounded-full w-2/5 animate-pulse" />
             </div>
             <div className="flex justify-between items-center text-xs text-[#909193]">
               <span className="font-mono">Runtime check</span>
@@ -171,7 +165,7 @@ export const ModelSetupScreen: React.FC<ModelSetupScreenProps> = ({
           >
             <div className="w-full bg-[#26292d] rounded-full h-2.5 overflow-hidden p-0.5">
               <div
-                className="bg-gradient-to-r from-[#009ADA] to-[#0EA5E9] h-full rounded-full transition-all duration-200 ease-out"
+                className="bg-gradient-to-r from-[#315c48] to-[#9bc3a5] h-full rounded-full transition-all duration-200 ease-out"
                 style={{ width: `${clampedProgress}%` }}
               />
             </div>
@@ -196,7 +190,7 @@ export const ModelSetupScreen: React.FC<ModelSetupScreenProps> = ({
             className="w-full bg-[#1b1d1f] border border-white/10 rounded-2xl p-4 sm:p-5 shadow-lg space-y-3"
           >
             <div className="w-full bg-[#26292d] rounded-full h-2.5 overflow-hidden p-0.5">
-              <div className="bg-gradient-to-r from-[#009ADA] to-amber-400 h-full rounded-full w-full animate-pulse" />
+              <div className="bg-gradient-to-r from-[#315c48] to-amber-400 h-full rounded-full w-full animate-pulse" />
             </div>
             <div className="flex justify-between items-center pt-0.5 text-xs text-[#909193]">
               <span className="font-mono text-amber-400">Integrity check</span>
@@ -239,7 +233,7 @@ export const ModelSetupScreen: React.FC<ModelSetupScreenProps> = ({
                 type="button"
                 onClick={onRetry}
                 aria-label="Retry local AI setup"
-                className="w-full flex items-center justify-center gap-2 bg-[#0EA5E9] hover:bg-[#0284c7] active:scale-[0.99] text-white font-medium py-3 px-4 rounded-xl transition-all shadow-md shadow-cyan-950/40 text-sm cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 bg-[#315c48] hover:bg-[#244a38] active:scale-[0.99] text-white font-medium py-3 px-4 rounded-xl transition-all shadow-md shadow-emerald-950/40 text-sm cursor-pointer"
               >
                 <FaArrowRotateRight className="h-4 w-4" />
                 <span>Retry Setup</span>
@@ -253,7 +247,7 @@ export const ModelSetupScreen: React.FC<ModelSetupScreenProps> = ({
       <footer className="relative z-10 w-full max-w-sm mx-auto">
         <div className="flex items-center justify-between p-3 sm:p-3.5 rounded-2xl bg-[#1b1d1f]/80 border border-white/8 text-left">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <div className="p-1.5 rounded-lg bg-[#0EA5E9]/10 text-[#0EA5E9] shrink-0">
+            <div className="p-1.5 rounded-lg bg-[#9bc3a5]/10 text-[#9bc3a5] shrink-0">
               <FaShieldHalved className="h-3.5 w-3.5" />
             </div>
             <div className="min-w-0 flex-1">

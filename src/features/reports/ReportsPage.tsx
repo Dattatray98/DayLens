@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { FiDownload } from "react-icons/fi";
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatRupees } from "../money/moneyRepository";
 import { getReportsData, type ReportRange } from "./reportsRepository";
 
 type Period = "week" | "month" | "lastMonth" | "custom";
+type DietMetric = "calories" | "protein" | "carbohydrates" | "fat";
 const localDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const rangeFor = (period: Period, today = new Date()): ReportRange => {
   const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -16,11 +16,16 @@ const rangeFor = (period: Period, today = new Date()): ReportRange => {
 };
 const displayDate = (date: string) => new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(`${date}T12:00:00`));
 const displayRange = ({ startDate, endDate }: ReportRange) => `${displayDate(startDate)} – ${displayDate(endDate)}, ${endDate.slice(0, 4)}`;
-const nutrientUnit = (nutrient: string) => nutrient === "calories" ? "kcal" : "g";
-const nutrientLabel: Record<string, string> = { calories: "Calories", protein: "Protein", carbohydrates: "Carbs", fat: "Fat" };
+const metricCategory = (value: string) => value.trim() || "other";
+const displayCategory = (value: string) => metricCategory(value).split(/[_\s-]+/).filter(Boolean).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+const nutrientUnit = (nutrient: DietMetric) => nutrient === "calories" ? "kcal" : "g";
+const nutrientLabel: Record<DietMetric, string> = { calories: "Calories", protein: "Protein", carbohydrates: "Carbs", fat: "Fat" };
 
 export default function ReportsPage() {
-  const [period, setPeriod] = useState<Period>("month");
+  const [period, setPeriod] = useState<Period>("week");
+  const [dietMetric, setDietMetric] = useState<DietMetric>("calories");
+  const [selectedWellnessCategory, setSelectedWellnessCategory] = useState("");
+  const [selectedWellnessMetricId, setSelectedWellnessMetricId] = useState<number | null>(null);
   const preset = useMemo(() => rangeFor(period), [period]);
   const [custom, setCustom] = useState<ReportRange>(() => rangeFor("month"));
   const range = period === "custom" ? custom : preset;
@@ -41,47 +46,176 @@ export default function ReportsPage() {
   const loading = currentResult === null;
   const data = currentResult?.data ?? null;
   const error = currentResult?.error ?? "";
-
-  const exportTransactions = () => {
-    if (!data) return;
-    const rows = [
-      ["Date", "Type", "Category", "Description", "Payment method", "Amount (INR)"],
-      ...data.money.transactions.map(item => [item.transactionDate, item.kind, item.categoryName, item.description, item.paymentMethod, (item.amountPaise / 100).toFixed(2)]),
-    ];
-    const csv = rows.map(row => row.map(value => {
-      const text = String(value);
-      const safeText = /^[\s]*[=+@-]/.test(text) ? `'${text}` : text;
-      return `"${safeText.replaceAll('"', '""')}"`;
-    }).join(",")).join("\r\n");
-    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" }));
-    const link = document.createElement("a"); link.href = url; link.download = `personal-os-transactions-${range.startDate}-to-${range.endDate}.csv`;
-    link.click(); URL.revokeObjectURL(url);
-  };
+  const wellnessCategories = [...new Set((data?.wellness ?? []).map(report => metricCategory(report.metric.category)))];
+  const activeWellnessCategory = wellnessCategories.includes(selectedWellnessCategory)
+    ? selectedWellnessCategory
+    : wellnessCategories[0] ?? "";
+  const categoryMetrics = data?.wellness.filter(report => metricCategory(report.metric.category) === activeWellnessCategory) ?? [];
+  const selectedWellness = categoryMetrics.find(report => report.metric.id === selectedWellnessMetricId) ?? categoryMetrics[0] ?? null;
+  const selectedWellnessMetric = selectedWellness?.metric;
+  const selectedWellnessBoolean = selectedWellnessMetric?.trackingType === "boolean";
+  const selectedWellnessRating = selectedWellnessMetric?.trackingType === "rating";
+  const selectedWellnessUnit = selectedWellnessMetric?.unit.trim() ?? "";
+  const selectedWellnessPeriodLabel = selectedWellnessBoolean ? "Completed days" : selectedWellnessRating ? "Period average" : "Period total";
+  const selectedWellnessPeriodValue = selectedWellness
+    ? selectedWellnessBoolean
+      ? `${selectedWellness.periodValue} ${selectedWellness.periodValue === 1 ? "day" : "days"}`
+      : `${selectedWellness.periodValue.toLocaleString()}${selectedWellnessUnit ? ` ${selectedWellnessUnit}` : ""}`
+    : "";
+  const selectedWellnessTarget = !selectedWellness || !selectedWellnessMetric || selectedWellnessBoolean || selectedWellnessRating
+    ? ""
+    : selectedWellness.targetForRange !== null
+      ? `Target ${selectedWellness.targetForRange.toLocaleString()}${selectedWellnessUnit ? ` ${selectedWellnessUnit}` : ""}`
+      : selectedWellnessMetric.targetValue > 0
+        ? "Target unavailable for this date range"
+        : "No target set";
 
   return <>
-    <div className="page-heading reports-heading"><div><span className="section-kicker">YOUR HISTORY</span><h1>Reports</h1><p>Patterns and summaries from your saved records.</p></div>{data?.money.transactionCount ? <button className="secondary-button" onClick={exportTransactions}><FiDownload /> Export transactions</button> : null}</div>
+    <div className="page-heading reports-heading"><div><span className="section-kicker">YOUR HISTORY</span><h1>Reports</h1><p>Patterns and summaries from your saved records.</p></div></div>
     <section className="reports-period content-panel" aria-label="Report date range">
       <div className="reports-period-tabs" role="group" aria-label="Choose reporting period">{([["week", "This week"], ["month", "This month"], ["lastMonth", "Last month"], ["custom", "Custom"]] as const).map(([value, label]) => <button key={value} className={period === value ? "selected" : ""} aria-pressed={period === value} onClick={() => setPeriod(value)}>{label}</button>)}</div>
       {period === "custom" ? <div className="reports-custom-range"><label>From<input type="date" value={custom.startDate} max={custom.endDate} onChange={event => setCustom(current => ({ ...current, startDate: event.target.value }))} /></label><label>To<input type="date" value={custom.endDate} min={custom.startDate} onChange={event => setCustom(current => ({ ...current, endDate: event.target.value }))} /></label></div> : <span className="reports-range-label">{displayRange(range)}</span>}
     </section>
     {loading ? <section className="content-panel reports-state" role="status">Loading reports…</section> : error ? <section className="content-panel reports-state" role="alert"><strong>Reports are unavailable</strong><p>{error}</p><button className="secondary-button" onClick={() => setAttempt(value => value + 1)}>Try again</button></section> : data ? <div className="reports-content">
-      <section className="reports-section"><div className="reports-section-heading"><div><span className="section-kicker">MONEY</span><h2>Cash flow</h2></div><button className="reports-export-mobile secondary-button" onClick={exportTransactions}><FiDownload /> Export CSV</button></div>
+      <section className="reports-section"><div className="reports-section-heading"><div><span className="section-kicker">MONEY</span><h2>Cash flow</h2></div></div>
         {data.money.transactionCount === 0 ? <EmptyReport>No transactions were recorded in this period.</EmptyReport> : <>
-          <div className="reports-stat-grid"><Stat label="Income" value={formatRupees(data.money.incomePaise)} tone="positive" /><Stat label="Expenses" value={formatRupees(data.money.expensesPaise)} tone="negative" /><Stat label="Net cash flow" value={formatRupees(data.money.netPaise)} tone={data.money.netPaise >= 0 ? "positive" : "negative"} /><Stat label="Transactions" value={String(data.money.transactionCount)} detail={`${formatRupees(data.money.openingBalancePaise)} opening balance · ${formatRupees(data.money.currentBalancePaise)} current balance`} /></div>
-          <div className="reports-chart-grid"><article className="content-panel reports-chart-card"><h3>Money by category</h3><p>Selected period · INR</p>{data.money.categories.income.length || data.money.categories.expense.length ? <div className="reports-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={[...data.money.categories.income.map(row => ({ name: row.name, Income: row.amountPaise / 100, Expenses: 0 })), ...data.money.categories.expense.map(row => ({ name: row.name, Income: 0, Expenses: row.amountPaise / 100 }))]} margin={{ top: 6, right: 8, left: 0, bottom: 4 }}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} /><YAxis tick={{ fontSize: 10 }} /><Tooltip formatter={value => `₹${Number(value).toLocaleString("en-IN")}`} /><Legend /><Bar dataKey="Income" fill="#65856f" radius={[4, 4, 0, 0]} /><Bar dataKey="Expenses" fill="#bd7567" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></div> : <EmptyReport>No category totals for this period.</EmptyReport>}{Boolean(data.money.categories.income.length || data.money.categories.expense.length) && <ul className="reports-category-summary">{(["income", "expense"] as const).flatMap(kind => data.money.categories[kind].map(category => <li key={`${kind}-${category.name}`}><span>{category.name} · {kind} ({category.count})</span><strong>{formatRupees(category.amountPaise)}</strong></li>))}</ul>}</article>
-            <article className="content-panel reports-table-card"><h3>Transactions</h3><p>{displayRange(range)}</p><div className="reports-table-wrap"><table><thead><tr><th>Date</th><th>Category</th><th>Type</th><th>Amount</th></tr></thead><tbody>{data.money.transactions.map(item => <tr key={item.id}><td>{displayDate(item.transactionDate)}</td><td>{item.categoryName}</td><td className={item.kind === "income" ? "report-positive" : "report-negative"}>{item.kind}</td><td>{formatRupees(item.amountPaise)}</td></tr>)}</tbody></table></div></article></div>
+          <div className="reports-stat-grid"><Stat label="Income" value={formatRupees(data.money.incomePaise)} tone="positive" /><Stat label="Expenses" value={formatRupees(data.money.expensesPaise)} tone="negative" /><Stat label="Net cash flow" value={formatRupees(data.money.netPaise)} tone={data.money.netPaise >= 0 ? "positive" : "negative"} /><Stat label="Current balance" value={formatRupees(data.money.currentBalancePaise)} detail={`Opening ${formatRupees(data.money.openingBalancePaise)}`} /></div>
+          <div className="reports-chart-grid reports-chart-grid-single">
+          <article className="content-panel reports-chart-card reports-money-category-card">
+            <h3>Category totals</h3>
+            {data.money.categories.income.length || data.money.categories.expense.length ? (
+              <div className="reports-chart reports-money-category-chart">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={[
+                      ...data.money.categories.income.map(row => ({ name: row.name, Income: row.amountPaise / 100, Expenses: null })),
+                      ...data.money.categories.expense.map(row => ({ name: row.name, Income: null, Expenses: row.amountPaise / 100 })),
+                    ]}
+                    margin={{ top: 10, right: 8, left: -12, bottom: 4 }}
+                    barGap={3}
+                  >
+                    <CartesianGrid stroke="var(--line)" strokeDasharray="3 5" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: "var(--muted)" }} tickLine={false} axisLine={false} minTickGap={12} tickFormatter={value => String(value).length > 10 ? `${String(value).slice(0, 9)}…` : value} />
+                    <YAxis tick={{ fontSize: 10, fill: "var(--muted)" }} tickLine={false} axisLine={false} width={48} tickFormatter={value => Number(value) >= 1000 ? `${Number(value) / 1000}k` : String(value)} />
+                    <Tooltip
+                      cursor={{ fill: "var(--green-soft)" }}
+                      contentStyle={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink)", fontSize: 12 }}
+                      labelStyle={{ color: "var(--muted)", marginBottom: 5 }}
+                      formatter={value => formatRupees(Math.round(Number(value) * 100))}
+                    />
+                    <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: 11, paddingTop: 8, color: "var(--muted)" }} />
+                    <Bar dataKey="Income" fill="#688a75" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                    <Bar dataKey="Expenses" fill="#bd7567" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : <EmptyReport>No category totals for this period.</EmptyReport>}
+          </article>
+          </div>
         </>}
       </section>
 
-      <section className="reports-section"><div className="reports-section-heading"><div><span className="section-kicker">DIET</span><h2>Nutrition over time</h2></div></div>
+      <section className="reports-section">
+        <div className="reports-section-heading"><div><span className="section-kicker">DIET</span><h2>Nutrition</h2></div></div>
         {!data.diet.days.some(day => day.entryCount) ? <EmptyReport>No food entries were recorded in this period.</EmptyReport> : <>
-          <div className="reports-stat-grid reports-diet-averages">{(["calories", "protein", "carbohydrates", "fat"] as const).map(nutrient => { const average = data.diet.averages[nutrient]; const target = data.diet.targets[nutrient]; return <Stat key={nutrient} label={`${nutrientLabel[nutrient]} daily average`} value={average ? `${average.value.toLocaleString()} ${nutrientUnit(nutrient)}` : "No known values"} detail={average ? `${average.daysCounted} day${average.daysCounted === 1 ? "" : "s"} with known data${average.incomplete ? " · partial values" : ""}${target === null ? " · no target set" : ` · target ${target} ${nutrientUnit(nutrient)}`}` : target === null ? "No target set" : `Target ${target} ${nutrientUnit(nutrient)} · no intake data`} tone={average?.incomplete ? "caution" : "neutral"} />; })}</div>
-          <article className="content-panel reports-chart-card reports-diet-chart"><h3>Daily intake and targets</h3><p>Known nutrient subtotals: calories use the left axis and macronutrients use the right axis. Missing values appear as gaps; hover for completeness.</p><div className="reports-chart reports-chart-tall"><ResponsiveContainer width="100%" height="100%"><LineChart data={data.diet.days.map(day => ({ date: displayDate(day.date), "Calories known subtotal": day.entryCount && day.totals.calories.knownEntries ? day.totals.calories.value : null, "Protein known subtotal": day.entryCount && day.totals.protein.knownEntries ? day.totals.protein.value : null, "Carbs known subtotal": day.entryCount && day.totals.carbohydrates.knownEntries ? day.totals.carbohydrates.value : null, "Fat known subtotal": day.entryCount && day.totals.fat.knownEntries ? day.totals.fat.value : null, "Calories target": data.diet.targets.calories, "Protein target": data.diet.targets.protein, "Carbs target": data.diet.targets.carbohydrates, "Fat target": data.diet.targets.fat }))} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="date" tick={{ fontSize: 10 }} /><YAxis yAxisId="calories" tick={{ fontSize: 10 }} /><YAxis yAxisId="grams" orientation="right" tick={{ fontSize: 10 }} /><Tooltip /><Legend /><Line yAxisId="calories" type="monotone" dataKey="Calories known subtotal" stroke="#d29a50" connectNulls={false} dot={false} /><Line yAxisId="grams" type="monotone" dataKey="Protein known subtotal" stroke="#668a73" connectNulls={false} dot={false} /><Line yAxisId="grams" type="monotone" dataKey="Carbs known subtotal" stroke="#8197b0" connectNulls={false} dot={false} /><Line yAxisId="grams" type="monotone" dataKey="Fat known subtotal" stroke="#b57996" connectNulls={false} dot={false} />{data.diet.targets.calories !== null && <Line yAxisId="calories" dataKey="Calories target" stroke="#d29a50" strokeDasharray="5 5" dot={false} />}{data.diet.targets.protein !== null && <Line yAxisId="grams" dataKey="Protein target" stroke="#668a73" strokeDasharray="5 5" dot={false} />}{data.diet.targets.carbohydrates !== null && <Line yAxisId="grams" dataKey="Carbs target" stroke="#8197b0" strokeDasharray="5 5" dot={false} />}{data.diet.targets.fat !== null && <Line yAxisId="grams" dataKey="Fat target" stroke="#b57996" strokeDasharray="5 5" dot={false} />}</LineChart></ResponsiveContainer></div><p className="reports-chart-note">Daily averages exclude days without known values. Partial nutrient totals are labeled above and are not treated as complete.</p></article>
+          <div className="reports-stat-grid reports-diet-averages">{(["calories", "protein", "carbohydrates", "fat"] as const).map(nutrient => {
+            const average = data.diet.averages[nutrient];
+            const target = data.diet.targets[nutrient];
+            const unit = nutrientUnit(nutrient);
+            const detail = average
+              ? `${average.daysCounted} day${average.daysCounted === 1 ? "" : "s"}${average.incomplete ? " · partial" : ""}${target === null ? "" : ` · target ${target.toLocaleString("en-IN")} ${unit}`}`
+              : target === null ? "No intake" : `Target ${target.toLocaleString("en-IN")} ${unit}`;
+            return <Stat key={nutrient} label={nutrientLabel[nutrient]} value={average ? `${average.value.toLocaleString("en-IN", { maximumFractionDigits: 2 })} ${unit}` : "—"} detail={detail} />;
+          })}</div>
+          <article className="content-panel reports-chart-card reports-diet-chart">
+            <div className="reports-diet-chart-heading">
+              <h3>Daily intake</h3>
+              <div className="reports-diet-chart-legend" aria-label="Chart legend">
+                <span><i className="reports-legend-intake" /> Intake</span>
+                {data.diet.targets[dietMetric] !== null && <span><i className="reports-legend-target" /> Target</span>}
+              </div>
+            </div>
+            <div className="reports-diet-metric-select" role="group" aria-label="Choose nutrient">
+              {(["calories", "protein", "carbohydrates", "fat"] as const).map(metric => (
+                <button key={metric} type="button" aria-pressed={dietMetric === metric} className={dietMetric === metric ? "selected" : ""} onClick={() => setDietMetric(metric)}>{nutrientLabel[metric]}</button>
+              ))}
+            </div>
+            <div className="reports-chart reports-diet-line-chart" role="img" aria-label={`${nutrientLabel[dietMetric]} intake and target over time`}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data.diet.days.map(day => {
+                  const total = day.totals[dietMetric];
+                  return {
+                    date: displayDate(day.date),
+                    intake: day.entryCount && total.knownEntries ? total.value : null,
+                    target: data.diet.targets[dietMetric],
+                    complete: total.complete,
+                  };
+                })} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+                  <CartesianGrid stroke="var(--line)" strokeDasharray="3 5" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--muted)" }} axisLine={false} tickLine={false} minTickGap={22} />
+                  <YAxis tick={{ fontSize: 10, fill: "var(--muted)" }} axisLine={false} tickLine={false} width={45} domain={[0, "auto"]} />
+                  <Tooltip
+                    contentStyle={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink)", fontSize: 12 }}
+                    labelStyle={{ color: "var(--muted)", marginBottom: 5 }}
+                    formatter={(value, name, item) => {
+                      const formatted = `${Number(value).toLocaleString()} ${nutrientUnit(dietMetric)}`;
+                      if (name === "Intake" && !item.payload.complete) return [`≥ ${formatted}`, "Known subtotal"];
+                      return [formatted, String(name ?? "Intake")];
+                    }}
+                  />
+                  <Line type="monotone" dataKey="intake" name="Intake" stroke="#688a75" strokeWidth={2.5} connectNulls={false} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                  {data.diet.targets[dietMetric] !== null && <Line type="linear" dataKey="target" name="Target" stroke="var(--muted)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} activeDot={false} />}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </article>
         </>}
       </section>
 
-      <section className="reports-section"><div className="reports-section-heading"><div><span className="section-kicker">WELLNESS</span><h2>Metric trends</h2></div></div>
-        {data.wellness.length === 0 ? <EmptyReport>No enabled, active wellness metrics are available.</EmptyReport> : <div className="reports-metric-grid">{data.wellness.map(report => <article key={report.metric.id} className="content-panel reports-metric-card"><div className="reports-metric-heading"><span>{report.metric.icon}</span><div><h3>{report.metric.name}</h3><p>{report.metric.unit} · {report.metric.trackingType} · {report.metric.frequency}</p></div></div>{report.logCount === 0 ? <div className="reports-metric-empty">No measurements in this period.</div> : <><div className="reports-metric-summary"><strong>{report.metric.trackingType === "boolean" ? `${report.periodValue} completed days` : `${report.periodValue.toLocaleString()} ${report.metric.unit}`}</strong><span>{report.logCount} measurement{report.logCount === 1 ? "" : "s"}{report.targetForRange === null ? ` · ${report.targetNote}` : ` · target ${report.targetForRange.toLocaleString()} ${report.metric.unit}`}</span></div><div className="reports-chart reports-metric-chart"><ResponsiveContainer width="100%" height="100%"><LineChart data={report.points.map(point => ({ date: displayDate(point.date), Value: point.value }))}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="date" tick={{ fontSize: 9 }} /><YAxis tick={{ fontSize: 9 }} /><Tooltip formatter={value => report.metric.trackingType === "boolean" ? (Number(value) ? "Done" : "Not done") : `${value} ${report.metric.unit}`} /><Line type="monotone" dataKey="Value" stroke="#688a75" connectNulls={false} dot={{ r: 2 }} /></LineChart></ResponsiveContainer></div></>}</article>)}</div>}
+      <section className="reports-section">
+        <div className="reports-section-heading"><div><h2>Wellness metrics</h2></div></div>
+        {data.wellness.length === 0 ? <EmptyReport>No active wellness metrics yet.</EmptyReport> : <>
+          <div className="reports-wellness-category-bar" role="group" aria-label="Choose a metric category">
+            {wellnessCategories.map(category => <button
+              key={category}
+              type="button"
+              className={activeWellnessCategory === category ? "selected" : ""}
+              aria-pressed={activeWellnessCategory === category}
+              onClick={() => {
+                setSelectedWellnessCategory(category);
+                setSelectedWellnessMetricId(data.wellness.find(report => metricCategory(report.metric.category) === category)?.metric.id ?? null);
+              }}
+            >{displayCategory(category)}</button>)}
+          </div>
+          {categoryMetrics.length > 1 && <div className="reports-wellness-metric-switch" role="group" aria-label="Choose a metric">
+            {categoryMetrics.map(report => <button key={report.metric.id} type="button" className={selectedWellness?.metric.id === report.metric.id ? "selected" : ""} aria-pressed={selectedWellness?.metric.id === report.metric.id} onClick={() => setSelectedWellnessMetricId(report.metric.id)}>
+              <span aria-hidden="true">{report.metric.icon}</span>{report.metric.name}
+            </button>)}
+          </div>}
+          {selectedWellness && selectedWellnessMetric && <article className="content-panel reports-metric-panel">
+            <div className="reports-metric-heading">
+              <span aria-hidden="true">{selectedWellnessMetric.icon}</span>
+              <div><h3>{selectedWellnessMetric.name}</h3><p>{selectedWellnessMetric.frequency.charAt(0).toUpperCase() + selectedWellnessMetric.frequency.slice(1)}{selectedWellnessUnit && !selectedWellnessBoolean ? ` · ${selectedWellnessUnit}` : ""}</p></div>
+            </div>
+            {selectedWellness.logCount === 0 ? <div className="reports-metric-empty">No entries in this period.</div> : <>
+              <div className="reports-metric-summary">
+                <div><span>{selectedWellnessPeriodLabel}</span><strong>{selectedWellnessPeriodValue}</strong></div>
+                <div className="reports-metric-meta"><span>{selectedWellness.logCount} {selectedWellness.logCount === 1 ? "entry" : "entries"}</span>{selectedWellnessTarget && <span>{selectedWellnessTarget}</span>}</div>
+              </div>
+              <div className="reports-chart reports-metric-chart">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={selectedWellness.points.map(point => ({ date: displayDate(point.date), Value: point.value }))}>
+                    <CartesianGrid stroke="var(--line)" strokeDasharray="3 5" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--muted)" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 9, fill: "var(--muted)" }} axisLine={false} tickLine={false} />
+                    <Tooltip formatter={value => selectedWellnessBoolean ? (Number(value) ? "Done" : "Not done") : `${Number(value).toLocaleString()}${selectedWellnessUnit ? ` ${selectedWellnessUnit}` : ""}`} />
+                    <Line type="monotone" dataKey="Value" stroke="#688a75" strokeWidth={2} connectNulls={false} dot={{ r: 2 }} activeDot={{ r: 4, strokeWidth: 0 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </>}
+          </article>}
+        </>}
       </section>
     </div> : null}
   </>;

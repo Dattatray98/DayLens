@@ -90,6 +90,7 @@ export default function DietPage() {
   const [foodEditor, setFoodEditor] = useState<DietFood | "new" | null>(null);
   const [foodDraft, setFoodDraft] = useState<FoodDraft>(blankFoodDraft());
   const [entryEditor, setEntryEditor] = useState<DietEntry | "new" | null>(null);
+  const [expandedEntryKey, setExpandedEntryKey] = useState<string | null>(null);
   const [entryDraft, setEntryDraft] = useState<EntryDraft>(blankEntryDraft());
   const [entryBaseline, setEntryBaseline] = useState<{ quantity: number; nutrition: NutritionValues } | null>(null);
   const [targetsEditor, setTargetsEditor] = useState(false);
@@ -317,12 +318,28 @@ export default function DietPage() {
     <section className="diet-panel money-panel">
       <div className="money-panel-heading diet-panel-heading"><div><h2>Food diary</h2><p>{loading ? "Loading entries…" : `${day?.entryCount ?? 0} ${day?.entryCount === 1 ? "entry" : "entries"} · ${formatDateLabel(date)}`}</p></div><div className="diet-tabs" role="tablist" aria-label="Diet views"><button type="button" role="tab" aria-selected={activeTab === "diary"} className={activeTab === "diary" ? "selected" : ""} onClick={() => setActiveTab("diary")}>Diary</button><button type="button" role="tab" aria-selected={activeTab === "foods"} className={activeTab === "foods" ? "selected" : ""} onClick={() => setActiveTab("foods")}>Food library <span>{foods.length}</span></button></div></div>
       {activeTab === "diary" ? <>
-        {loading ? <div className="money-inline-loading" role="status">Loading diary…</div> : !day?.entries.length ? <div className="diet-empty-state"><span className="money-empty-mark"><FiActivity /></span><strong>No food logged for this day</strong><p>Add a manual entry or choose a saved food. Unknown nutrition stays marked as unavailable.</p><button type="button" className="secondary-button" onClick={openNewEntry}><FiPlus /> Log food</button></div> : <div className="diet-entry-list">{day.entries.map(entry => <article className="diet-entry-row" key={`${entry.source}:${entry.id}`}>
-          <div className="diet-entry-time"><strong>{formatTimestamp(entry.timestamp)}</strong><span>{entry.source === "legacy" ? "Earlier food log" : "Diet entry"}</span></div>
-          <div className="diet-entry-main"><strong>{entry.foodName}</strong><span>{formatNumber(entry.quantity)} {entry.unit}{entry.notes ? ` · ${entry.notes}` : ""}</span></div>
-          <div className="diet-entry-nutrients">{NUTRIENTS.map(nutrient => <span key={nutrient}><small>{nutrient === "carbohydrates" ? "Carbs" : nutrientLabels[nutrient]}</small><b>{entry[nutrient] === null ? "—" : `${formatNumber(entry[nutrient] as number)} ${nutrientUnits[nutrient]}`}</b></span>)}</div>
-          <div className="diet-entry-actions">{entry.source === "diet" ? <><button type="button" className="icon-button" aria-label={`Edit ${entry.foodName}`} onClick={() => openEditEntry(entry)}><FiEdit2 /></button><button type="button" className="icon-button danger-icon" aria-label={`Delete ${entry.foodName}`} onClick={() => setDeleteTarget({ type: "entry", id: entry.id, source: entry.source, name: entry.foodName })}><FiTrash2 /></button></> : <span className="diet-legacy-badge">Read only</span>}</div>
-        </article>)}</div>}
+        {loading ? <div className="money-inline-loading" role="status">Loading diary…</div> : !day?.entries.length ? <div className="diet-empty-state"><span className="money-empty-mark"><FiActivity /></span><strong>No food logged for this day</strong><p>Add a manual entry or choose a saved food. Unknown nutrition stays marked as unavailable.</p><button type="button" className="secondary-button" onClick={openNewEntry}><FiPlus /> Log food</button></div> : <div className="diet-entry-list">{day.entries.map(entry => {
+          const entryKey = `${entry.source}:${entry.id}`;
+          const detailsId = `diet-entry-details-${entry.source}-${entry.id}`;
+          const expanded = expandedEntryKey === entryKey;
+          const calories = entry.calories === null ? "—" : `${formatNumber(entry.calories)} kcal`;
+          const entryActions = entry.source === "diet" ? <><button type="button" className="icon-button" aria-label={`Edit ${entry.foodName}`} onClick={() => openEditEntry(entry)}><FiEdit2 /></button><button type="button" className="icon-button danger-icon" aria-label={`Delete ${entry.foodName}`} onClick={() => setDeleteTarget({ type: "entry", id: entry.id, source: entry.source, name: entry.foodName })}><FiTrash2 /></button></> : <span className="diet-legacy-badge">Read only</span>;
+          return <article className={`diet-entry-row ${expanded ? "diet-entry-row-expanded" : ""}`} key={entryKey}>
+            <div className="diet-entry-time"><strong>{formatTimestamp(entry.timestamp)}</strong><span>{entry.source === "legacy" ? "Earlier food log" : "Diet entry"}</span></div>
+            <div className="diet-entry-main"><strong>{entry.foodName}</strong><span>{formatNumber(entry.quantity)} {entry.unit}{entry.notes ? ` · ${entry.notes}` : ""}</span></div>
+            <div className="diet-entry-nutrients">{NUTRIENTS.map(nutrient => <span key={nutrient}><small>{nutrient === "carbohydrates" ? "Carbs" : nutrientLabels[nutrient]}</small><b>{entry[nutrient] === null ? "—" : `${formatNumber(entry[nutrient] as number)} ${nutrientUnits[nutrient]}`}</b></span>)}</div>
+            <div className="diet-entry-actions">{entryActions}</div>
+            <button type="button" className="diet-entry-card-toggle" aria-expanded={expanded} aria-controls={detailsId} onClick={() => setExpandedEntryKey(expanded ? null : entryKey)}>
+              <span className="diet-entry-card-main"><span className="diet-entry-card-icon"><FiActivity aria-hidden="true" /></span><span className="diet-entry-card-copy"><span>{entry.source === "legacy" ? "Earlier food log" : "Food diary"} · {formatNumber(entry.quantity)} {entry.unit}</span><strong>{entry.foodName}</strong><time dateTime={entry.timestamp}>{formatTimestamp(entry.timestamp)}</time></span></span>
+              <span className="diet-entry-card-side"><strong>{calories}</strong><small>{expanded ? "Hide details" : "View details"}</small></span>
+            </button>
+            <div id={detailsId} className="diet-entry-mobile-details" aria-label={`Nutrition details for ${entry.foodName}`}>
+              <div className="diet-entry-mobile-nutrients">{NUTRIENTS.map(nutrient => <span key={nutrient}><small>{nutrient === "carbohydrates" ? "Carbs" : nutrientLabels[nutrient]}</small><b>{entry[nutrient] === null ? "—" : `${formatNumber(entry[nutrient] as number)} ${nutrientUnits[nutrient]}`}</b></span>)}</div>
+              {entry.notes && <p className="diet-entry-mobile-notes">{entry.notes}</p>}
+              <div className="diet-entry-mobile-actions">{entryActions}</div>
+            </div>
+          </article>;
+        })}</div>}
         {!!day?.entries.some(entry => entry.source === "legacy") && <p className="diet-legacy-note">Earlier food logs are shown separately as read-only history. Their missing carbohydrates and fat remain unknown.</p>}
       </> : <div className="diet-food-library">
         <div className="diet-library-toolbar"><label className="search-filter"><FiSearch aria-hidden="true" /><input type="search" aria-label="Search saved foods" placeholder="Search your foods" value={foodSearch} onChange={event => { setFoodsLoading(true); setFoodSearch(event.target.value); }} /></label><button type="button" className="secondary-button" onClick={() => { setFoodDraft(blankFoodDraft()); setFoodEditor("new"); }}><FiPlus /> Add custom food</button></div>

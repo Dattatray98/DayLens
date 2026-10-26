@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">wellNess Voice</string>
-    <string name="title_activity_main">wellNess Voice</string>
+    <string name="app_name">Daylens</string>
+    <string name="title_activity_main">Daylens</string>
     <string name="package_name">tech.github.dattatray.wellnessvoice</string>
     <string name="custom_url_scheme">tech.github.dattatray.wellnessvoice</string>
 </resources>

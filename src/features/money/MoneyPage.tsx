@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { FiEdit2, FiPlus, FiSearch, FiSettings, FiTrash2, FiX } from "react-icons/fi";
+import { FiArrowDownLeft, FiArrowUpRight, FiEdit2, FiPlus, FiSearch, FiSettings, FiTrash2, FiX } from "react-icons/fi";
 import {
   createMoneyCategory,
   createMoneyTransaction,
@@ -76,13 +76,14 @@ export default function MoneyPage() {
   const [categoryDraft, setCategoryDraft] = useState("");
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ type: "transaction" | "category"; id: number; name: string } | null>(null);
+  const [expandedTransactionId, setExpandedTransactionId] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     return Promise.all([
-        getMoneyCategories(),
-        getMoneyTransactions(filters),
-        getMoneySummary(month),
-      ]);
+      getMoneyCategories(),
+      getMoneyTransactions(filters),
+      getMoneySummary(month),
+    ]);
   }, [filters, month]);
 
   const applyData = useCallback(([nextCategories, nextTransactions, nextSummary]: Awaited<ReturnType<typeof fetchData>>) => {
@@ -228,7 +229,24 @@ export default function MoneyPage() {
         <label><span>Category</span><select aria-label="Category filter" value={filters.categoryId ?? "all"} onChange={event => { setLoading(true); setFilters(current => ({ ...current, categoryId: event.target.value === "all" ? "all" : Number(event.target.value) })); }}><option value="all">All categories</option>{categories.map(category => <option key={category.id} value={category.id}>{category.name} · {category.kind}</option>)}</select></label>
         {(filters.from || filters.to || filters.kind !== "all" || filters.categoryId !== "all" || filters.search) && <button className="clear-filters" type="button" onClick={() => { setLoading(true); setFilters({ kind: "all", categoryId: "all", search: "" }); }}>Clear filters</button>}
       </div>
-      {loading ? <div className="money-inline-loading" role="status">Loading transactions…</div> : transactions.length === 0 ? <div className="money-empty-state"><span className="money-empty-mark"><FiPlus /></span><strong>{filters.from || filters.to || filters.search || filters.kind !== "all" || filters.categoryId !== "all" ? "No matching transactions" : "No transactions yet"}</strong><p>{filters.from || filters.to || filters.search || filters.kind !== "all" || filters.categoryId !== "all" ? "Try changing or clearing your filters." : "Add your first income or expense to start tracking your balance."}</p>{!filters.search && !filters.from && !filters.to && <button type="button" className="secondary-button" onClick={() => openNewTransaction()}><FiPlus /> Add transaction</button>}</div> : <div className="transaction-table-wrap"><table className="transaction-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Payment method</th><th className="amount-column">Amount</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{transactions.map(transaction => <tr key={transaction.id}><td className="date-cell">{new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${transaction.transactionDate}T00:00:00Z`))}</td><td><strong className="transaction-description">{transaction.description || transaction.categoryName}</strong>{transaction.description && <small>{transaction.kind === "income" ? "Income" : "Expense"}</small>}</td><td><span className="category-pill">{transaction.categoryName}</span></td><td className="payment-cell">{transaction.paymentMethod || "—"}</td><td className={`amount-cell ${transaction.kind === "income" ? "income-text" : "expense-text"}`}>{transaction.kind === "income" ? "+" : "−"}{formatRupees(transaction.amountPaise)}</td><td><div className="transaction-actions"><button type="button" className="icon-button" aria-label={`Edit ${transaction.description || transaction.categoryName}`} onClick={() => openEditTransaction(transaction)}><FiEdit2 /></button><button type="button" className="icon-button danger-icon" aria-label={`Delete ${transaction.description || transaction.categoryName}`} onClick={() => setDeleteTarget({ type: "transaction", id: transaction.id, name: transaction.description || transaction.categoryName })}><FiTrash2 /></button></div></td></tr>)}</tbody></table></div>}
+      {loading ? <div className="money-inline-loading" role="status">Loading transactions…</div> : transactions.length === 0 ? <div className="money-empty-state"><span className="money-empty-mark"><FiPlus /></span><strong>{filters.from || filters.to || filters.search || filters.kind !== "all" || filters.categoryId !== "all" ? "No matching transactions" : "No transactions yet"}</strong><p>{filters.from || filters.to || filters.search || filters.kind !== "all" || filters.categoryId !== "all" ? "Try changing or clearing your filters." : "Add your first income or expense to start tracking your balance."}</p>{!filters.search && !filters.from && !filters.to && <button type="button" className="secondary-button" onClick={() => openNewTransaction()}><FiPlus /> Add transaction</button>}</div> : <div className="transaction-table-wrap"><table className="transaction-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Payment method</th><th className="amount-column">Amount</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{transactions.map(transaction => {
+        const expanded = expandedTransactionId === transaction.id;
+        const detailsId = `transaction-details-${transaction.id}`;
+        const transactionName = transaction.description || transaction.categoryName;
+        const displayDate = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${transaction.transactionDate}T00:00:00Z`));
+        const amountLabel = `${transaction.kind === "income" ? "+" : "−"}${formatRupees(transaction.amountPaise)}`;
+        const TypeIcon = transaction.kind === "income" ? FiArrowDownLeft : FiArrowUpRight;
+        const actionButtons = <div className="transaction-actions"><button type="button" className="icon-button" aria-label={`Edit ${transactionName}`} onClick={() => openEditTransaction(transaction)}><FiEdit2 /></button><button type="button" className="icon-button danger-icon" aria-label={`Delete ${transactionName}`} onClick={() => setDeleteTarget({ type: "transaction", id: transaction.id, name: transactionName })}><FiTrash2 /></button></div>;
+        return <tr key={transaction.id} className={expanded ? "transaction-row-expanded" : ""}>
+          <td className="date-cell" data-label="Date">{displayDate}</td>
+          <td data-label="Description"><strong className="transaction-description">{transactionName}</strong>{transaction.description && <small>{transaction.kind === "income" ? "Income" : "Expense"}</small>}<button type="button" className="transaction-card-toggle" aria-expanded={expanded} aria-controls={detailsId} onClick={() => setExpandedTransactionId(expanded ? null : transaction.id)}><span className="transaction-card-main"><span className={`transaction-card-icon ${transaction.kind}`}><TypeIcon aria-hidden="true" /></span><span className="transaction-card-copy"><span>{transaction.kind === "income" ? "Received" : "Paid"} · {transaction.categoryName}</span><strong>{transactionName}</strong><time dateTime={transaction.transactionDate}>{displayDate}</time></span></span><span className="transaction-card-side"><strong className={transaction.kind === "income" ? "income-text" : "expense-text"}>{amountLabel}</strong><small>{expanded ? "Hide details" : "View details"}</small></span></button></td>
+          <td data-label="Category"><span className="category-pill">{transaction.categoryName}</span></td>
+          <td className="payment-cell" data-label="Payment method">{transaction.paymentMethod || "—"}</td>
+          <td data-label="Amount" className={`amount-cell ${transaction.kind === "income" ? "income-text" : "expense-text"}`}>{amountLabel}</td>
+          <td data-label="Actions"><div className="transaction-actions">{actionButtons}</div></td>
+          <td id={detailsId} className="transaction-extra-cell" colSpan={6} aria-label={`More details for ${transactionName}`}><div className="transaction-extra-values"><span><small>Category</small><strong>{transaction.categoryName}</strong></span><span><small>Payment method</small><strong>{transaction.paymentMethod || "—"}</strong></span></div>{actionButtons}</td>
+        </tr>;
+      })}</tbody></table></div>}
     </section>
 
     {transactionEditor && <Modal title={transactionEditor === "new" ? "Add transaction" : "Edit transaction"} onClose={() => setTransactionEditor(null)}><form className="money-form" onSubmit={saveTransaction}>

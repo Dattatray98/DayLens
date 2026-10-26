@@ -451,10 +451,10 @@ const Settings = () => {
                 {/* SECTION 4: ABOUT */}
                 <div className="rounded-2xl bg-[#1A1C1E] border border-white/10 p-4">
                     <div className="flex items-center gap-3.5 mb-3.5 pb-3 border-b border-white/10">
-                        <FaInfoCircle className="h-6 w-6 text-[#0EA5E9] shrink-0" />
+                        <FaInfoCircle className="h-6 w-6 text-[#9bc3a5] shrink-0" />
                         <div>
-                            <h1 className="text-base font-bold text-white">About WellNess Voice</h1>
-                            <p className="text-xs text-[#2DB7F2]">Offline Personal Wellness Assistant</p>
+                            <h1 className="text-base font-bold text-white">About Daylens</h1>
+                            <p className="text-xs text-[#9bc3a5]">See your life more clearly.</p>
                         </div>
                     </div>
 

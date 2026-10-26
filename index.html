@@ -2,9 +2,24 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xmg" href="assets/icon.png"/>
+    <link rel="icon" type="image/png" href="/assets/icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
-    <title>Personal OS</title>
+    <meta name="description" content="Your personal space for money, nutrition, wellness, notes, and insights." />
+    <meta name="theme-color" content="#314f40" />
+    <title>Daylens</title>
+    <style>
+      html, body, #root { min-height: 100%; margin: 0; background-color: #f5f7f3; }
+      html[data-daylens-theme="dark"],
+      html[data-daylens-theme="dark"] body,
+      html[data-daylens-theme="dark"] #root { background-color: #171e19; color: #e7ebe5; color-scheme: dark; }
+    </style>
+    <script>
+      try {
+        const theme = localStorage.getItem("personal-os-theme") === "dark" ? "dark" : "light";
+        document.documentElement.dataset.daylensTheme = theme;
+        if (theme === "dark") document.querySelector('meta[name="theme-color"]').content = "#171e19";
+      } catch { /* Keep the first paint on the default light canvas when storage is unavailable. */ }
+    </script>
   </head>
   <body>
     <div id="root"></div>
