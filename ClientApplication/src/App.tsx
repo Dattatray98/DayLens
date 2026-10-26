@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { Capacitor } from "@capacitor/core";
 import { BrowserRouter, Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { FiActivity, FiArrowUpRight, FiBookOpen, FiCalendar, FiChevronDown, FiCreditCard, FiFileText, FiHome, FiLogOut, FiMoon, FiPlus, FiSettings, FiSun } from "react-icons/fi";
 import appIcon from "../assets/icon.png";
@@ -10,6 +11,7 @@ import { formatRupees, getMoneySummary, type MoneySummary } from "./features/mon
 import DietPage from "./features/diet/DietPage";
 import { getDietDayData, type DietDayData } from "./features/diet/dietRepository";
 import NotesPage from "./features/notes/NotesPage";
+import LandingPage from "./pages/LandingPage";
 const ReportsPage = lazy(() => import("./features/reports/ReportsPage"));
 
 type ModuleKey = "overview" | "money" | "diet" | "notes" | "reports" | "settings";
@@ -64,10 +66,10 @@ function AppRoutes() {
   const finishStartupExit = () => setStartupVisible(false);
 
   const application = <Routes>
+    <Route path="/" element={account ? <Navigate to="/overview" replace /> : Capacitor.isNativePlatform() ? <Navigate to="/login" replace /> : <LandingPage />} />
     <Route path="/login" element={account ? <Navigate to="/overview" replace /> : <AuthPage mode="login" />} />
     <Route path="/register" element={account ? <Navigate to="/overview" replace /> : <AuthPage mode="register" />} />
     <Route element={account ? <AppShell /> : <Navigate to="/login" replace />}>
-      <Route path="/" element={<Navigate to="/overview" replace />} />
       <Route path="/overview" element={<OverviewPage />} />
       <Route path="/money" element={<MoneyPage />} />
       <Route path="/diet" element={<DietPage />} />
@@ -129,8 +131,17 @@ function AppShell() {
     try { window.localStorage.setItem(themePreferenceKey, theme); }
     catch { /* Keep the selected theme for this session when storage is unavailable. */ }
   }, [theme]);
+  useEffect(() => {
+    const isOverview = location.pathname === "/overview";
+    document.documentElement.classList.toggle("overview-no-scroll", isOverview);
+    document.body.classList.toggle("overview-no-scroll", isOverview);
+    return () => {
+      document.documentElement.classList.remove("overview-no-scroll");
+      document.body.classList.remove("overview-no-scroll");
+    };
+  }, [location.pathname]);
   const initials = account?.email.slice(0, 1).toUpperCase() ?? "P";
-  return <div className={`app-frame theme-${theme}`}>
+  return <div className={`app-frame theme-${theme} ${location.pathname === "/overview" ? "overview-no-scroll" : ""}`}>
     <aside className="sidebar">
       <Link className="brand" to="/overview"><span className="brand-mark"><img src={appIcon} alt="" /></span><span>Daylens</span></Link>
       <span className="nav-caption">WORKSPACE</span>
