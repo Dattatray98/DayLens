@@ -217,11 +217,14 @@ body {
   min-height: 100vh
 }
 
-html.overview-no-scroll,
-body.overview-no-scroll {
-  height: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
+html.hide-overview-scrollbar {
+  scrollbar-width: none;
+}
+
+html.hide-overview-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 button,
@@ -483,24 +486,6 @@ input:focus-visible {
   background: var(--canvas);
   color: var(--ink);
   display: flex
-}
-
-.app-frame.overview-no-scroll {
-  height: 100vh;
-  height: 100dvh;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.app-frame.overview-no-scroll .main-column {
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.app-frame.overview-no-scroll .page-content {
-  min-height: 0;
-  overflow: hidden;
 }
 
 .app-frame.theme-dark {

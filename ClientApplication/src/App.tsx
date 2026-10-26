@@ -132,16 +132,12 @@ function AppShell() {
     catch { /* Keep the selected theme for this session when storage is unavailable. */ }
   }, [theme]);
   useEffect(() => {
-    const isOverview = location.pathname === "/overview";
-    document.documentElement.classList.toggle("overview-no-scroll", isOverview);
-    document.body.classList.toggle("overview-no-scroll", isOverview);
-    return () => {
-      document.documentElement.classList.remove("overview-no-scroll");
-      document.body.classList.remove("overview-no-scroll");
-    };
+    const root = document.documentElement;
+    root.classList.toggle("hide-overview-scrollbar", location.pathname === "/overview");
+    return () => root.classList.remove("hide-overview-scrollbar");
   }, [location.pathname]);
   const initials = account?.email.slice(0, 1).toUpperCase() ?? "P";
-  return <div className={`app-frame theme-${theme} ${location.pathname === "/overview" ? "overview-no-scroll" : ""}`}>
+  return <div className={`app-frame theme-${theme}`}>
     <aside className="sidebar">
       <Link className="brand" to="/overview"><span className="brand-mark"><img src={appIcon} alt="" /></span><span>Daylens</span></Link>
       <span className="nav-caption">WORKSPACE</span>
