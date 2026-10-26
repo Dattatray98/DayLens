@@ -113,7 +113,7 @@ const ActivityTab = () => {
         <div className="bg-black min-h-screen text-white flex flex-col">
             <Navbar />
 
-            <main className="flex-1 overflow-y-auto pb-28 pb-[calc(6rem+env(safe-area-inset-bottom))] px-4 pt-3 max-w-xl sm:max-w-2xl mx-auto w-full flex flex-col gap-4">
+            <main className="flex-1 overflow-y-auto pb-28 px-4 pt-3 max-w-xl sm:max-w-2xl mx-auto w-full flex flex-col gap-4">
                 {/* 1. PERIOD SWITCHER & RANGE HEADER */}
                 <div className="flex flex-col gap-2.5">
                     <div className="flex items-center justify-between">
