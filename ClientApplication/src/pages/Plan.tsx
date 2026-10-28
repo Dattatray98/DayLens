@@ -20,6 +20,7 @@ import {
 import { FaPlus, FaCheck, FaTimes } from "react-icons/fa";
 import { MdEdit, MdArchive } from "react-icons/md";
 import { LuClipboardList } from "react-icons/lu";
+import ConfirmDialog from "../Components/Common/ConfirmDialog";
 
 const PRESET_ICONS = ["🚶", "💧", "🥗", "🥩", "🏋️", "😴", "🧘", "💊", "🍎", "🚴", "🏃", "📊"];
 
@@ -63,6 +64,7 @@ const Plan = () => {
 
     // Show/hide disabled items section
     const [showDisabled, setShowDisabled] = useState(false);
+    const [archiveTarget, setArchiveTarget] = useState<number | null>(null);
 
     const loadPlan = async () => {
         try {
@@ -224,7 +226,7 @@ const Plan = () => {
 
     // Handle Archive
     const handleArchiveItem = async (id: number) => {
-        if (!window.confirm("Archive this plan item? Historical logs will be preserved.")) return;
+        setArchiveTarget(null);
         try {
             await archiveMetric(id);
             setEditingItem(null);
@@ -809,7 +811,7 @@ const Plan = () => {
                             <div className="flex flex-col sm:flex-row gap-2 pt-3">
                                 <button
                                     type="button"
-                                    onClick={() => handleArchiveItem(editingItem.metric.id)}
+                                    onClick={() => setArchiveTarget(editingItem.metric.id)}
                                     className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/30 text-rose-400 font-medium transition-colors cursor-pointer text-xs"
                                     title="Archive Plan Item"
                                 >
@@ -912,6 +914,7 @@ const Plan = () => {
                 </div>
             )}
 
+            {archiveTarget !== null && <ConfirmDialog title="Archive plan item?" message="Historical logs will be preserved." confirmLabel="Archive" onCancel={() => setArchiveTarget(null)} onConfirm={() => void handleArchiveItem(archiveTarget)} />}
             <Bottombar />
         </div>
     );
