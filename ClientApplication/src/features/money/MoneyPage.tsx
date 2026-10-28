@@ -78,6 +78,22 @@ export default function MoneyPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ type: "transaction" | "category"; id: number; name: string } | null>(null);
   const [expandedTransactionId, setExpandedTransactionId] = useState<number | null>(null);
 
+  useEffect(() => {
+    const onHardwareBack = (event: Event) => {
+      if (!deleteTarget && !categoryEditor && !openingEditor && !transactionEditor && !categoryManagerOpen && expandedTransactionId === null) return;
+      event.preventDefault();
+      if (saving) return;
+      if (deleteTarget) setDeleteTarget(null);
+      else if (categoryEditor) setCategoryEditor(null);
+      else if (openingEditor) setOpeningEditor(false);
+      else if (transactionEditor) setTransactionEditor(null);
+      else if (categoryManagerOpen) setCategoryManagerOpen(false);
+      else setExpandedTransactionId(null);
+    };
+    window.addEventListener("daylens:back", onHardwareBack);
+    return () => window.removeEventListener("daylens:back", onHardwareBack);
+  }, [categoryEditor, categoryManagerOpen, deleteTarget, expandedTransactionId, openingEditor, saving, transactionEditor]);
+
   const fetchData = useCallback(async () => {
     return Promise.all([
       getMoneyCategories(),

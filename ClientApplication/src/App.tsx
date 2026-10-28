@@ -126,8 +126,36 @@ function AuthPage({ mode }: { mode: "login" | "register" }) {
 function AppShell() {
   const { account, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [theme, setTheme] = useState<"light" | "dark">(readThemePreference);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let disposed = false;
+    let removeListener: (() => void) | undefined;
+    void import("@capacitor/app").then(({ App: CapacitorApp }) => {
+      if (disposed) return;
+      return CapacitorApp.addListener("backButton", ({ canGoBack }) => {
+        const backEvent = new Event("daylens:back", { cancelable: true });
+        window.dispatchEvent(backEvent);
+        if (backEvent.defaultPrevented) return;
+
+        const hasRouterHistory = typeof window.history.state?.idx === "number" && window.history.state.idx > 0;
+        if (canGoBack || hasRouterHistory) navigate(-1);
+        else if (location.pathname !== "/overview") navigate("/overview", { replace: true });
+        else void CapacitorApp.exitApp();
+      }).then(listener => {
+        if (disposed) void listener.remove();
+        else removeListener = () => { void listener.remove(); };
+      });
+    }).catch(error => {
+      console.error("Unable to register the native back button handler.", error);
+    });
+    return () => {
+      disposed = true;
+      removeListener?.();
+    };
+  }, [location.pathname, navigate]);
   useEffect(() => {
     try { window.localStorage.setItem(themePreferenceKey, theme); }
     catch { /* Keep the selected theme for this session when storage is unavailable. */ }

@@ -97,6 +97,21 @@ export default function DietPage() {
   const [targetDraft, setTargetDraft] = useState<Record<Nutrient, string>>({ calories: "", protein: "", carbohydrates: "", fat: "" });
   const [deleteTarget, setDeleteTarget] = useState<{ type: "food" | "entry"; id: number; source?: "diet" | "legacy"; name: string } | null>(null);
 
+  useEffect(() => {
+    const onHardwareBack = (event: Event) => {
+      if (!deleteTarget && !entryEditor && !foodEditor && !targetsEditor && activeTab !== "foods") return;
+      event.preventDefault();
+      if (saving) return;
+      if (deleteTarget) setDeleteTarget(null);
+      else if (entryEditor) setEntryEditor(null);
+      else if (foodEditor) setFoodEditor(null);
+      else if (targetsEditor) setTargetsEditor(false);
+      else setActiveTab("diary");
+    };
+    window.addEventListener("daylens:back", onHardwareBack);
+    return () => window.removeEventListener("daylens:back", onHardwareBack);
+  }, [activeTab, deleteTarget, entryEditor, foodEditor, saving, targetsEditor]);
+
   const loadDay = useCallback(async () => {
     setError("");
     try { setDay(await getDietDayData(date)); }

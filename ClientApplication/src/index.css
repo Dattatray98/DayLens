@@ -5503,7 +5503,10 @@ body {
 .notes-rich-editor { white-space: normal; }
 .notes-rich-editor > :first-child { margin-top: 0; }
 .notes-rich-editor p, .notes-rich-editor ul, .notes-rich-editor ol, .notes-rich-editor blockquote { margin-block: 0 1em; }
-.notes-rich-editor ul, .notes-rich-editor ol { padding-left: 1.5em; }
+.notes-rich-editor ul, .notes-rich-editor ol { display: block; padding-left: 1.5em; }
+.notes-rich-editor ul { list-style: disc outside; }
+.notes-rich-editor ol { list-style: decimal outside; }
+.notes-rich-editor li { display: list-item; }
 .notes-rich-editor h1, .notes-rich-editor h2, .notes-rich-editor h3, .notes-rich-editor h4, .notes-rich-editor h5, .notes-rich-editor h6 { color: var(--ink); line-height: 1.25; }
 .notes-rich-editor h2 { margin-block: .65em .45em; font-size: 1.45em; font-weight: 700; }
 .notes-rich-editor code { padding: .15em .35em; border-radius: 5px; background: var(--green-soft); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }

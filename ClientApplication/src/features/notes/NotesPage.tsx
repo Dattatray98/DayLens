@@ -156,6 +156,17 @@ export default function NotesPage() {
   const closeEditor = () => {
     discardOrStay(() => { setDraft(null); setSaveError(""); setNotice(""); });
   };
+  useEffect(() => {
+    const onHardwareBack = (event: Event) => {
+      if (!confirmation && !draft) return;
+      event.preventDefault();
+      if (saving) return;
+      if (confirmation) setConfirmation(null);
+      else closeEditor();
+    };
+    window.addEventListener("daylens:back", onHardwareBack);
+    return () => window.removeEventListener("daylens:back", onHardwareBack);
+  }, [confirmation, draft, saving, closeEditor]);
 
   const setEditorContent = useCallback((content: string) => {
     setDraft((current) => current ? { ...current, content } : current);
