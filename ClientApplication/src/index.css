@@ -5458,6 +5458,12 @@ body {
   }
 }
 
+@media (max-width: 720px) {
+  .app-frame.keyboard-open .mobile-bottom-nav {
+    display: none;
+  }
+}
+
 /* Notes list and focused note reader/editor */
 .notes-page { position: relative; min-width: 0; padding-bottom: 12px; }
 .notes-page-heading { margin-bottom: 24px; }
@@ -5481,17 +5487,34 @@ body {
 .notes-empty-card .empty-symbol { color: var(--green); font-size: 23px; }
 .notes-fab { display: none; }
 .notes-detail-screen { min-height: min(680px, calc(100svh - 150px)); padding: 7px 0 0; border: 0; background: transparent; }
-.notes-editor { min-height: inherit; gap: 14px; }
+.notes-editor { width: 100%; min-height: inherit; gap: 14px; }
 .notes-detail-toolbar { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 12px; }
 .notes-back-button { display: inline-flex; min-height: 42px; align-items: center; gap: 10px; padding: 0 9px 0 2px; border: 0; border-radius: 9px; background: transparent; color: var(--ink); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
 .notes-back-button svg { font-size: 19px; }
 .notes-detail-meta { display: flex; flex-wrap: wrap; gap: 7px 15px; color: var(--muted); font-size: 12px; }
 .notes-detail-title { width: 100%; padding: 7px 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; font-size: clamp(26px, 4vw, 34px); font-weight: 570; letter-spacing: -.045em; }
 .notes-detail-title::placeholder { color: var(--muted); opacity: .75; }
-.notes-detail-content { width: 100%; min-height: 340px; flex: 1; resize: vertical; padding: 17px 0 17px 17px; border: 0; border-left: 3px solid var(--line); border-radius: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; line-height: 1.75; white-space: pre-wrap; }
+.notes-detail-content { width: 100%; min-height: 340px; flex: 1; resize: vertical; padding: 17px 0; border: 0; border-radius: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; line-height: 1.75; white-space: pre-wrap; scrollbar-width: none; }
+.notes-detail-content::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .notes-detail-content::placeholder { color: var(--muted); opacity: .8; }
 .notes-detail-content:focus-visible { outline: 0; border-left-color: var(--green); }
 .notes-detail-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 7px 14px; margin-top: auto; color: var(--muted); font-size: 12px; }
+.notes-editor-open { overflow: hidden; }
+.notes-markdown-toolbar { display: flex; flex: 0 0 auto; align-items: center; gap: 5px; }
+.notes-markdown-toolbar button { display: grid; width: 34px; height: 32px; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+.notes-markdown-toolbar button:hover { border-color: var(--green); color: var(--green); }
+.notes-markdown-toolbar > span { margin-left: 5px; color: var(--muted); font-size: 11px; }
+.notes-markdown-preview { overflow-y: auto; font-size: 16px; line-height: 1.7; }
+.notes-markdown-preview > :first-child { margin-top: 0; }
+.notes-markdown-preview h1, .notes-markdown-preview h2, .notes-markdown-preview h3 { color: var(--ink); line-height: 1.25; }
+.notes-markdown-preview h1 { font-size: 1.7em; }.notes-markdown-preview h2 { font-size: 1.4em; }.notes-markdown-preview h3 { font-size: 1.15em; }
+.notes-markdown-preview p, .notes-markdown-preview ul, .notes-markdown-preview ol, .notes-markdown-preview blockquote { margin-block: 0 1em; }
+.notes-markdown-preview ul, .notes-markdown-preview ol { padding-left: 1.5em; }
+.notes-markdown-preview blockquote { margin-left: 0; padding-left: 1em; border-left: 3px solid var(--line); color: var(--muted); }
+.notes-markdown-preview code { padding: .15em .35em; border-radius: 5px; background: var(--green-soft); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+.notes-markdown-preview pre { overflow-x: auto; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.notes-markdown-preview pre code { padding: 0; background: transparent; }
+.notes-markdown-preview a { color: var(--green); text-decoration: underline; text-underline-offset: 2px; }
 
 @media (max-width: 720px) {
   .notes-page { padding-bottom: 24px; }
@@ -5507,13 +5530,17 @@ body {
   .notes-card small { font-size: 13px; }
   .notes-fab { position: fixed; z-index: 35; right: 19px; bottom: calc(84px + env(safe-area-inset-bottom)); display: grid; width: 62px; height: 62px; place-items: center; border: 0; border-radius: 50%; background: var(--green); color: #fff; box-shadow: 0 8px 22px #17251a30; cursor: pointer; }
   .notes-fab svg { font-size: 27px; stroke-width: 2; }
-  .notes-detail-screen { min-height: calc(100svh - 190px); padding: 0; }
-  .notes-editor { min-height: calc(100svh - 190px); gap: 13px; }
+  .notes-detail-screen { position: fixed; z-index: 35; inset: 0 0 calc(60px + env(safe-area-inset-bottom)); display: flex; min-height: 0; overflow: hidden; padding: calc(8px + env(safe-area-inset-top)) 18px 10px; border: 0; border-radius: 0; background: var(--canvas); }
+  .notes-editor { height: 100%; min-height: 0; gap: 10px; }
+  .notes-detail-toolbar { flex: 0 0 44px; }
+  .notes-detail-meta { flex: 0 0 auto; }
+  .notes-detail-title { flex: 0 0 auto; }
   .notes-detail-toolbar .notes-editor-actions { gap: 6px; }
   .notes-detail-toolbar .primary-button { min-height: 42px; padding-inline: 15px; }
-  .notes-detail-title { padding-block: 6px; font-size: 28px; }
-  .notes-detail-content { min-height: 42svh; padding-left: 15px; font-size: 17px; }
-  .notes-detail-footer { padding-bottom: 5px; font-size: 12px; }
+  .notes-markdown-toolbar button { width: 36px; height: 35px; }
+  .notes-detail-title { padding-block: 4px; font-size: 28px; }
+  .notes-detail-content { min-height: 0; flex: 1 1 auto; overflow-y: auto; resize: none; padding: 8px 0 16px; font-size: 17px; overscroll-behavior: contain; }
+  .notes-detail-footer { flex: 0 0 auto; padding-bottom: 5px; font-size: 12px; }
 }
 
 @media (max-width: 380px) {

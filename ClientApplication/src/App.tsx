@@ -127,17 +127,62 @@ function AppShell() {
   const { account, logout } = useAuth();
   const location = useLocation();
   const [theme, setTheme] = useState<"light" | "dark">(readThemePreference);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   useEffect(() => {
     try { window.localStorage.setItem(themePreferenceKey, theme); }
     catch { /* Keep the selected theme for this session when storage is unavailable. */ }
   }, [theme]);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    let baselineHeight = viewport?.height ?? window.innerHeight;
+    let baselineWidth = window.innerWidth;
+    let blurTimer = 0;
+
+    const hasTextFocus = () => {
+      const active = document.activeElement;
+      return active instanceof HTMLElement && (active.isContentEditable || active.matches("input, textarea, select"));
+    };
+    const updateKeyboardState = () => {
+      const currentHeight = viewport?.height ?? window.innerHeight;
+      if (Math.abs(window.innerWidth - baselineWidth) > 100) {
+        baselineWidth = window.innerWidth;
+        baselineHeight = currentHeight;
+        setKeyboardOpen(false);
+        return;
+      }
+      if (window.innerWidth > 720) {
+        baselineHeight = currentHeight;
+        setKeyboardOpen(false);
+        return;
+      }
+      setKeyboardOpen(hasTextFocus() && baselineHeight - currentHeight > 120);
+    };
+    const onFocusOut = () => {
+      window.clearTimeout(blurTimer);
+      blurTimer = window.setTimeout(updateKeyboardState, 180);
+    };
+
+    const frame = window.requestAnimationFrame(updateKeyboardState);
+    window.addEventListener("resize", updateKeyboardState);
+    document.addEventListener("focusin", updateKeyboardState);
+    document.addEventListener("focusout", onFocusOut);
+    viewport?.addEventListener("resize", updateKeyboardState);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(blurTimer);
+      window.removeEventListener("resize", updateKeyboardState);
+      document.removeEventListener("focusin", updateKeyboardState);
+      document.removeEventListener("focusout", onFocusOut);
+      viewport?.removeEventListener("resize", updateKeyboardState);
+    };
+  }, []);
   useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle("hide-overview-scrollbar", location.pathname === "/overview");
     return () => root.classList.remove("hide-overview-scrollbar");
   }, [location.pathname]);
   const initials = account?.email.slice(0, 1).toUpperCase() ?? "P";
-  return <div className={`app-frame theme-${theme}`}>
+  return <div className={`app-frame theme-${theme} ${keyboardOpen ? "keyboard-open" : ""}`}>
     <aside className="sidebar">
       <Link className="brand" to="/overview"><span className="brand-mark"><img src={appIcon} alt="" /></span><span>Daylens</span></Link>
       <span className="nav-caption">WORKSPACE</span>
@@ -150,7 +195,7 @@ function AppShell() {
       <main className="page-content"><Outlet /></main>
       <footer className="app-footer">Daylens <span>·</span> Your data stays on this device</footer>
     </div>
-    <nav className="mobile-bottom-nav" aria-label="Main navigation">{navItems.filter(item => item.key !== "settings").map(item => { const Icon = item.icon; return <NavLink key={item.path} end to={item.path} onClick={event => { if (location.pathname === item.path) { event.preventDefault(); window.location.reload(); } }} className={({ isActive }) => `mobile-nav-link ${isActive ? "active" : ""}`}><Icon aria-hidden="true" /><span>{item.label}</span></NavLink>; })}</nav>
+    <nav className="mobile-bottom-nav" aria-label="Main navigation">{navItems.filter(item => item.key !== "settings").map(item => { const Icon = item.icon; return <NavLink key={item.path} end to={item.path} className={({ isActive }) => `mobile-nav-link ${isActive ? "active" : ""}`}><Icon aria-hidden="true" /><span>{item.label}</span></NavLink>; })}</nav>
   </div>;
 }
 
